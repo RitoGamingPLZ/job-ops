@@ -57,7 +57,6 @@ services:
         - path: ./orchestrator/src
           target: /app/orchestrator/src
           action: sync+restart
-          action: sync+restart
         - path: ./career-boards/bamboohr/src
           target: /app/career-boards/bamboohr/src
           action: sync+restart

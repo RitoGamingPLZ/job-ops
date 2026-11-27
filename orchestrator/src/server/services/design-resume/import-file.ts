@@ -1,8 +1,14 @@
 import { normalizeGeminiModelName } from "@server/services/llm/utils/gemini-model";
 import { getPositiveIntEnv } from "@server/utils/env";
-import { asArray, asRecord } from "@shared/utils/type-conversion";
+import { asArray, asRecord, toText } from "@shared/utils/type-conversion";
 import { randomUUID } from "node:crypto";
-import { AppError, badRequest, serviceUnavailable, upstreamError } from "@infra/errors";
+import {
+  AppError,
+  badRequest,
+  getErrorMessage,
+  serviceUnavailable,
+  upstreamError,
+} from "@infra/errors";
 import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { getRequestId } from "@server/infra/request-context";
@@ -15,6 +21,9 @@ import {
 import { ClaudeCliClient } from "@server/services/llm/claude-cli/client";
 import { CodexClient } from "@server/services/llm/codex/client";
 import { GeminiCliClient } from "@server/services/llm/gemini-cli/client";
+import { strategies } from "@server/services/llm/providers";
+import { resolveGlmChatCompletionsUrl } from "@server/services/llm/providers/glm";
+import { resolveOpenAiCompatibleChatCompletionsUrl } from "@server/services/llm/providers/openai-compatible";
 import type { JsonSchemaDefinition } from "@server/services/llm/types";
 import { resolveLlmRuntimeSettings } from "@server/services/modelSelection";
 import { normalizeResumeV5Document } from "@server/services/resume-document/document";
@@ -24,7 +33,7 @@ import {
 } from "@server/services/resume-document/schema";
 import { decodeBase64Upload } from "@server/services/upload-base64";
 import { DOCX_MIME } from "@shared/job-document-classification.js";
-import { mapGlmProviderAlias } from "@shared/settings-registry";
+import { normalizeLlmProviderName } from "@shared/settings-registry";
 import type { DesignResumeDocument, DesignResumeJson } from "@shared/types";
 import { jsonrepair } from "jsonrepair";
 import { buildHeaders, getResponseDetail, joinUrl } from "../llm/utils/http";
@@ -263,9 +272,22 @@ const ANTHROPIC_IMPORT_MAX_TOKENS = 16_000;
 const GEMINI_DEFAULT_TIMEOUT_MS = () => getPositiveIntEnv("LLM_IMPORT_GEMINI_TIMEOUT_MS", 90_000);
 const LOCAL_CHAT_COMPLETIONS_TIMEOUT_MS = () =>
   getPositiveIntEnv("LLM_IMPORT_LOCAL_TIMEOUT_MS", 120_000);
-const CHAT_COMPLETIONS_SUFFIX = "/v1/chat/completions";
-const GLM_CHAT_COMPLETIONS_SUFFIX = "/chat/completions";
-const API_VERSION_SUFFIX = "/v1";
+
+const SUPPORTED_RUNTIME_PROVIDERS = new Set<SupportedRuntimeProvider>([
+  "openai",
+  "anthropic",
+  "openrouter",
+  "orcarouter",
+  "litellm",
+  "glm",
+  "gemini",
+  "gemini_cli",
+  "claude_cli",
+  "codex",
+  "openai_compatible",
+  "ollama",
+  "lmstudio",
+]);
 
 const SUPPORTED_EXTENSION_TO_MEDIA_TYPE: Record<string, SupportedImportMediaType> = {
   pdf: "application/pdf",
@@ -291,10 +313,6 @@ Rules:
 
 type RecordLike = Record<string, unknown>;
 
-function toText(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
 function trimText(value: unknown): string {
   return toText(value).trim();
 }
@@ -304,28 +322,10 @@ function elapsedMs(startedAt: number): number {
 }
 
 function normalizeRuntimeProvider(provider: string | null): SupportedRuntimeProvider | null {
-  const normalized = provider?.trim().toLowerCase().replace(/[-.]/g, "_");
-  if (normalized === "openai") return "openai";
-  if (normalized === "openrouter" || normalized === "open_router") {
-    return "openrouter";
-  }
-  if (normalized === "orcarouter" || normalized === "orca_router") {
-    return "orcarouter";
-  }
-  if (normalized === "litellm" || normalized === "litellm_proxy") {
-    return "litellm";
-  }
-  const mapped = mapGlmProviderAlias(normalized ?? "");
-  if (mapped === "glm") return "glm";
-  if (mapped === "anthropic" || mapped === "claude") return "anthropic";
-  if (mapped === "gemini") return "gemini";
-  if (mapped === "gemini_cli") return "gemini_cli";
-  if (mapped === "claude_cli") return "claude_cli";
-  if (mapped === "codex") return "codex";
-  if (mapped === "openai_compatible") return "openai_compatible";
-  if (mapped === "ollama") return "ollama";
-  if (mapped === "lmstudio") return "lmstudio";
-  return null;
+  const normalized = normalizeLlmProviderName(provider);
+  return SUPPORTED_RUNTIME_PROVIDERS.has(normalized as SupportedRuntimeProvider)
+    ? (normalized as SupportedRuntimeProvider)
+    : null;
 }
 
 function normalizeFileName(fileName: string): string {
@@ -385,34 +385,6 @@ function decodeBase64Payload(dataBase64: string): {
 
 function buildDataUrl(mediaType: SupportedImportMediaType, dataBase64: string): string {
   return `data:${mediaType};base64,${dataBase64}`;
-}
-
-function normalizeBaseUrlOrEndpoint(baseUrlOrEndpoint: string): string {
-  return baseUrlOrEndpoint.trim().replace(/\/+$/, "");
-}
-
-function appendVersionedPath(baseUrl: string, path: string): string {
-  if (baseUrl.endsWith(API_VERSION_SUFFIX)) {
-    return joinUrl(baseUrl.slice(0, -API_VERSION_SUFFIX.length), path);
-  }
-  return joinUrl(baseUrl, path);
-}
-
-function resolveChatCompletionsUrl(
-  baseUrlOrEndpoint: string,
-  provider: "openai_compatible" | "glm" | "ollama" | "lmstudio" | "orcarouter" | "litellm",
-): string {
-  const normalized = normalizeBaseUrlOrEndpoint(baseUrlOrEndpoint);
-  if (
-    normalized.endsWith(CHAT_COMPLETIONS_SUFFIX) ||
-    normalized.endsWith(GLM_CHAT_COMPLETIONS_SUFFIX)
-  ) {
-    return normalized;
-  }
-  if (provider === "glm") {
-    return joinUrl(normalized, GLM_CHAT_COMPLETIONS_SUFFIX);
-  }
-  return appendVersionedPath(normalized, CHAT_COMPLETIONS_SUFFIX);
 }
 
 function buildUserPrompt(): string {
@@ -802,56 +774,6 @@ function buildDocumentTextPrompt(
   );
 }
 
-function extractOpenAiOutputText(response: unknown): string | null {
-  const payload = asRecord(response);
-  const outputText = trimText(payload?.output_text);
-  if (outputText) return outputText;
-
-  const output = asArray(payload?.output);
-  for (const item of output) {
-    const content = asArray(asRecord(item)?.content);
-    for (const part of content) {
-      if (trimText(asRecord(part)?.type) !== "output_text") continue;
-      const text = trimText(asRecord(part)?.text);
-      if (text) return text;
-    }
-  }
-
-  return null;
-}
-
-function extractChatCompletionText(response: unknown): string | null {
-  const payload = asRecord(response);
-  const choices = asArray(payload?.choices);
-  const firstChoice = asRecord(choices[0]);
-  const message = asRecord(firstChoice?.message);
-  return trimText(message?.content) || null;
-}
-
-function extractAnthropicText(response: unknown): string | null {
-  const content = asArray(asRecord(response)?.content);
-  const text = content
-    .map((part) => {
-      const record = asRecord(part);
-      return record?.type === "text" ? toText(record.text) : "";
-    })
-    .join("");
-  return text || null;
-}
-
-function extractGeminiText(response: unknown): string | null {
-  const payload = asRecord(response);
-  const candidates = asArray(payload?.candidates);
-  const firstCandidate = asRecord(candidates[0]);
-  const parts = asArray(asRecord(firstCandidate?.content)?.parts);
-  const text = parts
-    .filter((part) => !asRecord(part)?.thought)
-    .map((part) => trimText(asRecord(part)?.text))
-    .filter(Boolean)
-    .join("");
-  return text || null;
-}
-
 function extractProbablyJsonObject(content: string): string {
   const stripped = content
     .replace(/^```(?:json)?\s*/i, "")
@@ -886,7 +808,7 @@ function parseImportedResumeJson(content: string): unknown {
       return JSON.parse(jsonrepair(repaired)) as unknown;
     } catch (error) {
       throw badRequest(
-        `Imported resume did not produce valid JSON. ${error instanceof Error ? error.message : "Unknown parsing error."}`,
+        `Imported resume did not produce valid JSON. ${getErrorMessage(error, "Unknown parsing error.")}`,
       );
     }
   }
@@ -898,7 +820,7 @@ function parseCodexResumeImportResponse(content: string): string {
     parsed = JSON.parse(content);
   } catch (error) {
     throw upstreamError(
-      `Codex returned malformed resume import JSON. ${error instanceof Error ? error.message : "Unknown parsing error."}`,
+      `Codex returned malformed resume import JSON. ${getErrorMessage(error, "Unknown parsing error.")}`,
     );
   }
 
@@ -1230,8 +1152,29 @@ function shouldFallbackToExtractedPdfText(input: {
     return false;
   }
 
-  const message = input.error instanceof Error ? input.error.message : String(input.error);
+  const message = getErrorMessage(input.error);
   return isFileCapabilityError(message);
+}
+
+async function buildProviderHttpError(args: {
+  response: Response;
+  provider: SupportedRuntimeProvider;
+  label: string;
+  model: string;
+  requestId: string | undefined;
+  extraDetails?: Record<string, unknown>;
+}): Promise<AppError> {
+  const detail = parseErrorMessage(await getResponseDetail(args.response));
+  return new AppError({
+    status: args.response.status >= 500 ? 502 : 503,
+    message: detail || `${args.label} returned ${args.response.status}.`,
+    details: {
+      provider: args.provider,
+      model: args.model,
+      requestId: args.requestId ?? null,
+      ...args.extraDetails,
+    },
+  });
 }
 
 async function extractWithOpenAi(args: {
@@ -1244,7 +1187,7 @@ async function extractWithOpenAi(args: {
   documentText?: string | null;
   requestId: string | undefined;
 }): Promise<string> {
-  const url = joinUrl(args.baseUrl || "https://api.openai.com", "/v1/responses");
+  const url = joinUrl(args.baseUrl || strategies.openai.defaultBaseUrl, "/v1/responses");
   const response = await fetch(url, {
     method: "POST",
     headers: buildHeaders({
@@ -1290,20 +1233,17 @@ async function extractWithOpenAi(args: {
   });
 
   if (!response.ok) {
-    const detail = parseErrorMessage(await getResponseDetail(response));
-    throw new AppError({
-      status: response.status >= 500 ? 502 : 503,
-      message: detail || `OpenAI returned ${response.status}.`,
-      details: {
-        provider: "openai",
-        model: args.model,
-        requestId: args.requestId ?? null,
-      },
+    throw await buildProviderHttpError({
+      response,
+      provider: "openai",
+      label: "OpenAI",
+      model: args.model,
+      requestId: args.requestId,
     });
   }
 
   const payload = await response.json();
-  const text = extractOpenAiOutputText(payload);
+  const text = strategies.openai.extractText(payload)?.trim() || null;
   if (!text) {
     throw upstreamError("OpenAI returned an empty response for resume import.");
   }
@@ -1320,7 +1260,10 @@ async function extractWithOpenRouter(args: {
   documentText?: string | null;
   requestId: string | undefined;
 }): Promise<string> {
-  const url = joinUrl(args.baseUrl || "https://openrouter.ai", "/api/v1/chat/completions");
+  const url = joinUrl(
+    args.baseUrl || strategies.openrouter.defaultBaseUrl,
+    "/api/v1/chat/completions",
+  );
   const pdfEngines =
     args.mediaType === "application/pdf"
       ? (["cloudflare-ai", "mistral-ocr", null] as const)
@@ -1381,16 +1324,13 @@ async function extractWithOpenRouter(args: {
     });
 
     if (!response.ok) {
-      const detail = parseErrorMessage(await getResponseDetail(response));
-      const appError = new AppError({
-        status: response.status >= 500 ? 502 : 503,
-        message: detail || `OpenRouter returned ${response.status}.`,
-        details: {
-          provider: "openrouter",
-          model: args.model,
-          requestId: args.requestId ?? null,
-          pdfEngine: engine,
-        },
+      const appError = await buildProviderHttpError({
+        response,
+        provider: "openrouter",
+        label: "OpenRouter",
+        model: args.model,
+        requestId: args.requestId,
+        extraDetails: { pdfEngine: engine },
       });
 
       lastError = appError;
@@ -1407,7 +1347,7 @@ async function extractWithOpenRouter(args: {
     }
 
     const payload = await response.json();
-    const text = extractChatCompletionText(payload);
+    const text = strategies.openrouter.extractText(payload)?.trim() || null;
     if (!text) {
       throw upstreamError("OpenRouter returned an empty response for resume import.");
     }
@@ -1427,7 +1367,7 @@ async function extractWithAnthropic(args: {
   fileName: string;
   requestId: string | undefined;
 }): Promise<string> {
-  const url = joinUrl(args.baseUrl || "https://api.anthropic.com", "/v1/messages");
+  const url = joinUrl(args.baseUrl || strategies.anthropic.defaultBaseUrl, "/v1/messages");
   const response = await fetch(url, {
     method: "POST",
     headers: buildHeaders({
@@ -1469,20 +1409,17 @@ async function extractWithAnthropic(args: {
   });
 
   if (!response.ok) {
-    const detail = parseErrorMessage(await getResponseDetail(response));
-    throw new AppError({
-      status: response.status >= 500 ? 502 : 503,
-      message: detail || `Anthropic returned ${response.status}.`,
-      details: {
-        provider: "anthropic",
-        model: args.model,
-        requestId: args.requestId ?? null,
-      },
+    throw await buildProviderHttpError({
+      response,
+      provider: "anthropic",
+      label: "Anthropic",
+      model: args.model,
+      requestId: args.requestId,
     });
   }
 
   const payload = await response.json();
-  const text = extractAnthropicText(payload);
+  const text = strategies.anthropic.extractText(payload)?.trim() || null;
   if (!text) {
     throw upstreamError("Anthropic returned an empty response for resume import.");
   }
@@ -1500,7 +1437,7 @@ async function extractWithGemini(args: {
   requestId: string | undefined;
 }): Promise<string> {
   const model = normalizeGeminiModelName(args.model);
-  const baseUrl = args.baseUrl || "https://generativelanguage.googleapis.com";
+  const baseUrl = args.baseUrl || strategies.gemini.defaultBaseUrl;
   const url = `${joinUrl(baseUrl, `/v1beta/models/${encodeURIComponent(model)}:generateContent`)}?key=${encodeURIComponent(args.apiKey)}`;
   const response = await fetch(url, {
     method: "POST",
@@ -1542,35 +1479,21 @@ async function extractWithGemini(args: {
   });
 
   if (!response.ok) {
-    const detail = parseErrorMessage(await getResponseDetail(response));
-    throw new AppError({
-      status: response.status >= 500 ? 502 : 503,
-      message: detail || `Gemini returned ${response.status}.`,
-      details: {
-        provider: "gemini",
-        model: args.model,
-        requestId: args.requestId ?? null,
-      },
+    throw await buildProviderHttpError({
+      response,
+      provider: "gemini",
+      label: "Gemini",
+      model: args.model,
+      requestId: args.requestId,
     });
   }
 
   const payload = await response.json();
-  const text = extractGeminiText(payload);
+  const text = strategies.gemini.extractText(payload)?.trim() || null;
   if (!text) {
     throw upstreamError("Gemini returned an empty response for resume import.");
   }
   return text;
-}
-
-function getDefaultChatCompletionsBaseUrl(
-  provider: "openai_compatible" | "glm" | "ollama" | "lmstudio" | "orcarouter" | "litellm",
-): string {
-  if (provider === "ollama") return "http://localhost:11434";
-  if (provider === "lmstudio") return "http://localhost:1234";
-  if (provider === "glm") return "https://api.z.ai/api/paas/v4";
-  if (provider === "orcarouter") return "https://api.orcarouter.ai/v1";
-  if (provider === "litellm") return "http://localhost:4000";
-  return "https://api.openai.com";
 }
 
 async function extractWithTextChatCompletions(args: {
@@ -1583,10 +1506,11 @@ async function extractWithTextChatCompletions(args: {
   documentText: string;
   requestId: string | undefined;
 }): Promise<string> {
-  const url = resolveChatCompletionsUrl(
-    args.baseUrl || getDefaultChatCompletionsBaseUrl(args.provider),
-    args.provider,
-  );
+  const baseUrl = args.baseUrl || strategies[args.provider].defaultBaseUrl;
+  const url =
+    args.provider === "glm"
+      ? resolveGlmChatCompletionsUrl(baseUrl)
+      : resolveOpenAiCompatibleChatCompletionsUrl(baseUrl);
   const response = await fetch(url, {
     method: "POST",
     headers: buildHeaders({
@@ -1611,20 +1535,17 @@ async function extractWithTextChatCompletions(args: {
   });
 
   if (!response.ok) {
-    const detail = parseErrorMessage(await getResponseDetail(response));
-    throw new AppError({
-      status: response.status >= 500 ? 502 : 503,
-      message: detail || `${args.provider} returned ${response.status}.`,
-      details: {
-        provider: args.provider,
-        model: args.model,
-        requestId: args.requestId ?? null,
-      },
+    throw await buildProviderHttpError({
+      response,
+      provider: args.provider,
+      label: args.provider,
+      model: args.model,
+      requestId: args.requestId,
     });
   }
 
   const payload = await response.json();
-  const text = extractChatCompletionText(payload);
+  const text = strategies[args.provider].extractText(payload)?.trim() || null;
   if (!text) {
     throw upstreamError(`${args.provider} returned an empty response for resume import.`);
   }
@@ -1667,7 +1588,7 @@ async function extractWithTextCli(args: {
     if (error instanceof AppError) {
       throw error;
     }
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     throw upstreamError(
       truncate(message, 500),
       args.requestId
@@ -1728,7 +1649,7 @@ async function extractWithCodex(args: {
     if (error instanceof AppError) {
       throw error;
     }
-    const message = error instanceof Error ? error.message : String(error);
+    const message = getErrorMessage(error);
     throw upstreamError(
       truncate(message, 500),
       args.requestId
@@ -1861,8 +1782,7 @@ export async function importDesignResumeFromFile(
         throw error;
       }
 
-      const message =
-        error instanceof Error ? error.message : "Reactive Resume JSON import failed.";
+      const message = getErrorMessage(error, "Reactive Resume JSON import failed.");
       throw badRequest(truncate(message, 400));
     }
   }
@@ -2074,7 +1994,7 @@ export async function importDesignResumeFromFile(
       throw error;
     }
 
-    const message = error instanceof Error ? error.message : "Resume import failed.";
+    const message = getErrorMessage(error, "Resume import failed.");
     if (isFileCapabilityError(message)) {
       throw serviceUnavailable(
         `The configured ${provider} model could not accept this attached ${mediaType === "application/pdf" ? "PDF" : "DOCX"} file directly. Choose a model with native file support and try again.`,

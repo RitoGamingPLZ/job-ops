@@ -1,6 +1,6 @@
 import catalog from "@server/config/career-boards-lever.json";
-import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { jsonResponse as json, makeSelectedSource } from "../testing/fixtures";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
 vi.mock("node:timers/promises", async (importOriginal) => {
@@ -19,18 +19,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 const base = "https://jobs.lever.co/spotify";
-const source: WatchlistSelectedSource = {
+const source = makeSelectedSource({
   id: "selected-lever",
   catalogSourceId: "lever:spotify",
   label: "Spotify",
   sourceType: "lever",
   careersUrl: base,
-  cxsJobsUrl: null,
-  isCustom: false,
-  sortOrder: 0,
-  createdAt: "2026-11-07T00:00:00Z",
-  updatedAt: "2026-11-07T00:00:00Z",
-};
+});
 function job(id = "posting-1", createdAt = 1700000000000) {
   return {
     id,
@@ -54,9 +49,6 @@ function job(id = "posting-1", createdAt = 1700000000000) {
     ],
     additional: "<p>Equal opportunities.</p>",
   };
-}
-function json(data: unknown) {
-  return new Response(JSON.stringify(data));
 }
 
 describe("leverWatchlistAdapter", () => {
@@ -198,6 +190,7 @@ describe("leverWatchlistAdapter", () => {
     expect(mock).toHaveBeenCalledTimes(1);
   });
   it("handles empty boards, optional fields and plain text descriptions", async () => {
+    vi.useFakeTimers();
     const minimal = {
       id: "minimal",
       text: "Engineer",
@@ -214,7 +207,9 @@ describe("leverWatchlistAdapter", () => {
       fetched: 0,
       jobs: [],
     });
-    const result = await adapter.fetchJobs({ source });
+    const pending = adapter.fetchJobs({ source });
+    await vi.runAllTimersAsync();
+    const result = await pending;
     expect(result.jobs[0]).toMatchObject({
       location: null,
       postedAt: null,
@@ -239,6 +234,7 @@ describe("leverWatchlistAdapter", () => {
     );
   });
   it("keeps both companies cached after fetching all boards, even for identical posting IDs", async () => {
+    vi.useFakeTimers();
     const other = {
       ...source,
       label: "Palantir",
@@ -250,7 +246,9 @@ describe("leverWatchlistAdapter", () => {
       .mockResolvedValueOnce(json([{ ...job(), text: "Palantir Engineer" }]));
     vi.stubGlobal("fetch", mock);
     await adapter.fetchJobs({ source });
-    await adapter.fetchJobs({ source: other });
+    const otherFetch = adapter.fetchJobs({ source: other });
+    await vi.runAllTimersAsync();
+    await otherFetch;
     expect(
       (
         await adapter.prepareImportDraft({
@@ -270,6 +268,7 @@ describe("leverWatchlistAdapter", () => {
     expect(mock).toHaveBeenCalledTimes(2);
   });
   it("replaces only the refreshed company's cache and removes stale postings", async () => {
+    vi.useFakeTimers();
     const mock = vi
       .fn()
       .mockResolvedValueOnce(json([job()]))
@@ -277,11 +276,15 @@ describe("leverWatchlistAdapter", () => {
       .mockResolvedValueOnce(json({ ...job(), text: "Updated posting" }));
     vi.stubGlobal("fetch", mock);
     await adapter.fetchJobs({ source });
-    await adapter.fetchJobs({ source });
-    const imported = await adapter.prepareImportDraft({
+    const second = adapter.fetchJobs({ source });
+    await vi.runAllTimersAsync();
+    await second;
+    const third = adapter.prepareImportDraft({
       source,
       jobRef: `${base}/posting-1`,
     });
+    await vi.runAllTimersAsync();
+    const imported = await third;
     expect(imported.draft.title).toBe("Updated posting");
     expect(mock).toHaveBeenCalledTimes(3);
   });
@@ -326,6 +329,7 @@ describe("leverWatchlistAdapter", () => {
     },
   );
   it("rejects malformed JSON and mismatched detail IDs", async () => {
+    vi.useFakeTimers();
     vi.stubGlobal(
       "fetch",
       vi
@@ -334,9 +338,11 @@ describe("leverWatchlistAdapter", () => {
         .mockResolvedValueOnce(json(job("wrong"))),
     );
     await expect(adapter.fetchJobs({ source })).rejects.toThrow("Lever returned invalid JSON.");
-    await expect(
+    const pending = expect(
       adapter.prepareImportDraft({ source, jobRef: `${base}/posting-1` }),
     ).rejects.toThrow("Lever returned invalid posting data.");
+    await vi.runAllTimersAsync();
+    await pending;
   });
   it("retries 429 three times with 1s/3s/8s backoff", async () => {
     vi.useFakeTimers();
@@ -356,15 +362,19 @@ describe("leverWatchlistAdapter", () => {
     expect(attempts).toEqual([0, 1000, 4000, 12000]);
   });
   it.each(["0", new Date(0).toUTCString()])("honors Retry-After %s", async (header) => {
+    vi.useFakeTimers();
     const mock = vi
       .fn()
       .mockResolvedValueOnce(new Response("", { status: 429, headers: { "Retry-After": header } }))
       .mockResolvedValueOnce(json([]));
     vi.stubGlobal("fetch", mock);
-    expect((await adapter.fetchJobs({ source })).fetched).toBe(0);
+    const pending = adapter.fetchJobs({ source });
+    await vi.runAllTimersAsync();
+    expect((await pending).fetched).toBe(0);
     expect(mock).toHaveBeenCalledTimes(2);
   });
   it("propagates caller cancellation and interrupts long Retry-After waits", async () => {
+    vi.useFakeTimers();
     const controller = new AbortController();
     controller.abort();
     const mock = vi
@@ -374,9 +384,10 @@ describe("leverWatchlistAdapter", () => {
     await expect(adapter.fetchJobs({ source, signal: controller.signal })).rejects.toThrow();
     expect(mock).not.toHaveBeenCalled();
     const next = new AbortController();
-    const pending = adapter.fetchJobs({ source, signal: next.signal });
-    setTimeout(() => next.abort(), 20);
-    await expect(pending).rejects.toThrow();
+    const assertion = expect(adapter.fetchJobs({ source, signal: next.signal })).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(20);
+    next.abort();
+    await assertion;
     expect(mock).toHaveBeenCalledTimes(1);
   });
   it("never caches workspace labels with public postings", async () => {
@@ -393,6 +404,7 @@ describe("leverWatchlistAdapter", () => {
     expect(mock).toHaveBeenCalledTimes(1);
   });
   it("applies the 25 second budget to retry waits even without a caller signal", async () => {
+    vi.useFakeTimers();
     const controller = new AbortController();
     const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
     vi.stubGlobal(
@@ -401,9 +413,10 @@ describe("leverWatchlistAdapter", () => {
         .fn()
         .mockResolvedValue(new Response("", { status: 429, headers: { "Retry-After": "100" } })),
     );
-    const pending = adapter.fetchJobs({ source });
-    setTimeout(() => controller.abort(), 20);
-    await expect(pending).rejects.toThrow();
+    const assertion = expect(adapter.fetchJobs({ source })).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(20);
+    controller.abort();
+    await assertion;
     expect(timeout).toHaveBeenCalledWith(25000);
   });
   it("paces concurrent requests to the public API host one second apart", async () => {
@@ -428,6 +441,7 @@ describe("leverWatchlistAdapter", () => {
 });
 
 it("normalizes repeated URL filters, drops unknowns, and preserves posting links/imports", async () => {
+  vi.useFakeTimers();
   const careersUrl = `${base}?team=Z&location=New%20York&location=London&location=London&department=Engineering&team=A&unknown=drop`;
   const canonical = `${base}?department=Engineering&location=London&location=New+York&team=A&team=Z`;
   const mock = vi
@@ -448,7 +462,9 @@ it("normalizes repeated URL filters, drops unknowns, and preserves posting links
     catalog[0].id,
   );
   const filtered = { ...source, careersUrl: canonical };
-  const result = await adapter.fetchJobs({ source: filtered });
+  const pendingResult = adapter.fetchJobs({ source: filtered });
+  await vi.runAllTimersAsync();
+  const result = await pendingResult;
   expect(result).toMatchObject({ total: 105, fetched: 60 });
   expect(mock.mock.calls[1][0]).toBe(
     "https://api.lever.co/v0/postings/spotify?mode=json&department=Engineering&location=London&location=New+York&team=A&team=Z",

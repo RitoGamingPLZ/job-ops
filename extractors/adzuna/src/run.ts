@@ -1,6 +1,7 @@
 import { normalizeCountryKey } from "@shared/location-support.js";
 import { resolveSearchCities, shouldApplyStrictCityFilter } from "@shared/search-cities.js";
 import type { CreateJobInput, JobLocationEvidence } from "@shared/types/jobs";
+import { formatSalaryRange } from "@shared/utils/salary.js";
 import { toNumberOrNull, toStringOrNull } from "@shared/utils/type-conversion.js";
 
 const API_BASE = "https://api.adzuna.com/v1/api";
@@ -8,7 +9,7 @@ const DEFAULT_SEARCH_TERM = "web developer";
 
 type AdzunaCompany = { display_name?: unknown };
 type AdzunaLocation = { display_name?: unknown };
-export type AdzunaRawJob = {
+type AdzunaRawJob = {
   id?: unknown;
   title?: unknown;
   description?: unknown;
@@ -22,7 +23,7 @@ export type AdzunaRawJob = {
   contract_type?: unknown;
 };
 
-export type AdzunaProgressEvent =
+type AdzunaProgressEvent =
   | {
       type: "term_start";
       termIndex: number;
@@ -46,7 +47,7 @@ export type AdzunaProgressEvent =
       jobsFoundTerm: number;
     };
 
-export interface RunAdzunaOptions {
+interface RunAdzunaOptions {
   searchTerms?: string[];
   country?: string;
   countryKey?: string;
@@ -60,7 +61,7 @@ export interface RunAdzunaOptions {
   onProgress?: (event: AdzunaProgressEvent) => void;
 }
 
-export interface AdzunaResult {
+interface AdzunaResult {
   success: boolean;
   jobs: CreateJobInput[];
   error?: string;
@@ -69,19 +70,6 @@ export interface AdzunaResult {
 function readEnvVar(name: string): string | undefined {
   if (typeof process === "undefined" || !process.env) return undefined;
   return process.env[name]?.trim();
-}
-
-function formatSalary(job: AdzunaRawJob): string | undefined {
-  const min = toNumberOrNull(job.salary_min);
-  const max = toNumberOrNull(job.salary_max);
-
-  if (min === null && max === null) return undefined;
-  if (min !== null && max !== null) {
-    return `${Math.round(min)}-${Math.round(max)}`;
-  }
-  if (min !== null) return `${Math.round(min)}+`;
-  if (max !== null) return `${Math.round(max)}`;
-  return undefined;
 }
 
 function mapAdzunaJob(raw: AdzunaRawJob): CreateJobInput | null {
@@ -112,7 +100,10 @@ function mapAdzunaJob(raw: AdzunaRawJob): CreateJobInput | null {
     applicationLink: jobUrl,
     location: location ?? undefined,
     locationEvidence,
-    salary: formatSalary(raw),
+    salary: formatSalaryRange({
+      min: toNumberOrNull(raw.salary_min),
+      max: toNumberOrNull(raw.salary_max),
+    }),
     datePosted: toStringOrNull(raw.created) ?? undefined,
     jobDescription: toStringOrNull(raw.description) ?? undefined,
     jobType: jobType || undefined,

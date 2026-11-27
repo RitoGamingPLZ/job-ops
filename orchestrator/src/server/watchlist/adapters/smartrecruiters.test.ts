@@ -1,6 +1,6 @@
 import catalog from "@server/config/career-boards-smartrecruiters.json";
-import type { WatchlistSelectedSource } from "@shared/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { makeSelectedSource } from "../testing/fixtures";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 vi.mock("node:timers/promises", async (importOriginal) => {
   const { withFakeTimeouts } = await import("../testing/timers");
@@ -9,18 +9,13 @@ vi.mock("node:timers/promises", async (importOriginal) => {
 
 let adapter: WatchlistCatalogSourceAdapter;
 const base = "https://jobs.smartrecruiters.com/ServiceNow";
-const source: WatchlistSelectedSource = {
+const source = makeSelectedSource({
   id: "selected",
   catalogSourceId: "smartrecruiters:servicenow",
   label: "ServiceNow",
   sourceType: "smartrecruiters",
   careersUrl: base,
-  cxsJobsUrl: null,
-  isCustom: false,
-  sortOrder: 0,
-  createdAt: "2026-11-07T00:00:00Z",
-  updatedAt: "2026-11-07T00:00:00Z",
-};
+});
 function job(id = 1, company = "ServiceNow") {
   return {
     id: String(id),
@@ -401,6 +396,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
     },
   );
   it("combines a 25-second budget with caller cancellation during retries", async () => {
+    vi.useFakeTimers();
     const timeout = vi.spyOn(AbortSignal, "timeout");
     const mock = vi
       .fn()
@@ -410,7 +406,7 @@ describe("smartrecruitersWatchlistAdapter", () => {
     const outcome = expect(
       adapter.fetchJobs({ source, signal: controller.signal }),
     ).rejects.toThrow();
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await vi.advanceTimersByTimeAsync(10);
     controller.abort();
     await outcome;
     expect(mock).toHaveBeenCalledTimes(1);

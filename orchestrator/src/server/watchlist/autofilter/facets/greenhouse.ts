@@ -1,3 +1,5 @@
+import { createBudgetSignal, fetchWatchlist } from "@server/watchlist/adapters/http";
+import { parseSafeHttpsUrl } from "@server/watchlist/adapters/url";
 import { rankFacetValues } from "./shared";
 import {
   GREENHOUSE_CANONICAL_BOARD_ORIGIN,
@@ -33,14 +35,7 @@ const jobsSchema = z.object({
 
 export const discoverGreenhouseFacets: FacetDiscovery = async ({ careersUrl, signal }) => {
   let source: ReturnType<typeof parseGreenhouseUrl>;
-  let url: URL;
-  try {
-    url = new URL(careersUrl);
-    if (url.protocol !== "https:" || url.username || url.password || url.port)
-      throw new Error("Invalid URL");
-  } catch {
-    throw badRequest("Use an HTTPS Greenhouse board URL.");
-  }
+  const url = parseSafeHttpsUrl(careersUrl, "Use an HTTPS Greenhouse board URL.");
   // Suggestion normalization preserves the input origin and path. Reject aliases
   // before discovery (including embeds whose `for` token may be absent).
   if (
@@ -57,23 +52,16 @@ export const discoverGreenhouseFacets: FacetDiscovery = async ({ careersUrl, sig
     throw badRequest("Use an HTTPS Greenhouse board URL.");
   }
   signal?.throwIfAborted();
-  const requestSignal = signal
-    ? AbortSignal.any([signal, AbortSignal.timeout(25_000)])
-    : AbortSignal.timeout(25_000);
+  const requestSignal = createBudgetSignal(signal);
   async function load(path: string): Promise<unknown> {
-    const response = await fetch(`${source.boardApiUrl}/${path}`, {
-      redirect: "manual",
+    return fetchWatchlist({
+      url: `${source.boardApiUrl}/${path}`,
       signal: requestSignal,
       headers: { accept: "application/json" },
+      maxRetries: 0,
+      formatHttpError: ({ status }) => upstreamError(`Greenhouse facets returned HTTP ${status}.`),
+      formatInvalidBodyError: () => upstreamError("Greenhouse facets returned invalid JSON."),
     });
-    if (!response.ok) throw upstreamError(`Greenhouse facets returned HTTP ${response.status}.`);
-    try {
-      return await response.json();
-    } catch (error) {
-      if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
-        throw error;
-      throw upstreamError("Greenhouse facets returned invalid JSON.");
-    }
   }
   // Public board data only; no tenant data or process-level cache.
   const [departmentsData, jobsData] = await Promise.all([load("departments"), load("jobs")]);

@@ -1,4 +1,4 @@
-import { asArray, asRecord } from "@shared/utils/type-conversion";
+import { asArray, asRecord, toBoolean, toNumber, toText } from "@shared/utils/type-conversion";
 import { createId } from "@paralleldrive/cuid2";
 import { resolvePublicBaseUrl } from "@server/infra/public-availability";
 import { defaultV5ResumeData, metadataSchema, templateNames } from "./schema/v5";
@@ -36,18 +36,6 @@ const DEFAULT_SIDEBAR_SECTIONS = [
   "interests",
   "publications",
 ];
-
-function toText(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function toBoolean(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback;
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);

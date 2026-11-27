@@ -1,14 +1,17 @@
 import { normalizeGeminiModelName } from "../utils/gemini-model";
-import { formatTranscript, needsWindowsShell } from "../utils/cli-common";
+import {
+  buildCliErrorMessage,
+  formatTranscript,
+  needsWindowsShell,
+  validateCliCredentials,
+} from "../utils/cli-common";
 import { toNonEmptyString } from "@shared/utils/type-conversion";
 import { getPositiveIntEnv } from "@server/utils/env";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
-import { logger } from "@infra/logger";
 import { type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
 import { runCliProcess } from "../utils/cli-process";
-import { truncate } from "../utils/string";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const DEFAULT_VALIDATION_TIMEOUT_MS = 60_000;
@@ -23,14 +26,12 @@ const GEMINI_CLI_SUGGESTED_MODELS: string[] = [
 ];
 
 function buildGeminiCliErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("ENOENT")) {
-    return "Gemini CLI was not found in PATH. Install @google/gemini-cli globally or set GEMINI_CLI_BIN.";
-  }
-  if (message.includes("EINVAL")) {
-    return "Gemini CLI could not be started (EINVAL). Try unsetting GEMINI_CLI_BIN so `gemini` resolves via PATH, or set it to the real CLI entry (not a broken shim path).";
-  }
-  return truncate(message, 500);
+  return buildCliErrorMessage(error, {
+    enoentMessage:
+      "Gemini CLI was not found in PATH. Install @google/gemini-cli globally or set GEMINI_CLI_BIN.",
+    einvalMessage:
+      "Gemini CLI could not be started (EINVAL). Try unsetting GEMINI_CLI_BIN so `gemini` resolves via PATH, or set it to the real CLI entry (not a broken shim path).",
+  });
 }
 
 /**
@@ -197,43 +198,21 @@ export class GeminiCliClient {
       "GEMINI_CLI_VALIDATION_TIMEOUT_MS",
       DEFAULT_VALIDATION_TIMEOUT_MS,
     );
-    try {
-      const { stdout } = await runGeminiCliOnce({
-        spawnFn: this.spawnFn,
-        prompt: 'Return only valid JSON with no markdown or explanation: {"ok":true}',
-        model: null,
-        timeoutMs,
-        signal,
-      });
-      try {
+    return validateCliCredentials({
+      label: "Gemini CLI",
+      run: () =>
+        runGeminiCliOnce({
+          spawnFn: this.spawnFn,
+          prompt: 'Return only valid JSON with no markdown or explanation: {"ok":true}',
+          model: null,
+          timeoutMs,
+          signal,
+        }),
+      parse: (stdout) => {
         parseCliJsonOutput(stdout);
-      } catch {
-        return {
-          valid: false,
-          message:
-            "Gemini CLI ran but the response was not in the expected format. Check CLI output or authentication.",
-          username: null,
-        };
-      }
-      return { valid: true, message: null, username: null };
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("aborted")) {
-        return {
-          valid: false,
-          message: "Gemini CLI validation was cancelled.",
-          username: null,
-        };
-      }
-      const message = buildGeminiCliErrorMessage(error);
-      logger.warn("Gemini CLI credential validation failed", {
-        message: truncate(message, 200),
-      });
-      return {
-        valid: false,
-        message,
-        username: null,
-      };
-    }
+      },
+      formatError: buildGeminiCliErrorMessage,
+    });
   }
 
   listModels(): Promise<string[]> {

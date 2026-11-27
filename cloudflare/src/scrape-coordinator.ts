@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { OnTaskDonePosting } from "./app-store";
 import type { Env } from "./types";
-import { resolveInternalContainerSecret, sleep } from "./utils";
+import { jsonError, resolveInternalContainerSecret, sleep } from "./utils";
 
 const DISPATCH_INTERVAL_MS = 30_000;
 const LEASE_DURATION_MS = 5 * 60_000;
@@ -282,16 +282,9 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
       return Response.json({ ok: true, data: { counts, sources } });
     }
 
-    return Response.json(
-      {
-        ok: false,
-        error: {
-          code: "NOT_FOUND",
-          message: `Unknown ScrapeCoordinator route: ${url.pathname}`,
-        },
-      },
-      { status: 404 },
-    );
+    return jsonError(request, "NOT_FOUND", `Unknown ScrapeCoordinator route: ${url.pathname}`, {
+      status: 404,
+    });
   }
 
   async ensureTask(input: EnsureTaskInput): Promise<{
@@ -995,16 +988,9 @@ export class ScraperContainer extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
     const container = this.ctx.container;
     if (!container) {
-      return Response.json(
-        {
-          ok: false,
-          error: {
-            code: "SERVICE_UNAVAILABLE",
-            message: "ScraperContainer runtime is not bound.",
-          },
-        },
-        { status: 503 },
-      );
+      return jsonError(request, "SERVICE_UNAVAILABLE", "ScraperContainer runtime is not bound.", {
+        status: 503,
+      });
     }
 
     const portNumber = Number.parseInt(this.env.PORT ?? "", 10) || 3001;
@@ -1030,14 +1016,10 @@ export class ScraperContainer extends DurableObject<Env> {
     // Confirm readiness on cold start or after an unexpected container exit without probing
     // /health on every warm request.
     if (!(await this.ensureContainerReady(portNumber))) {
-      return Response.json(
-        {
-          ok: false,
-          error: {
-            code: "SERVICE_UNAVAILABLE",
-            message: "The worker container did not finish starting. Try again in a moment.",
-          },
-        },
+      return jsonError(
+        request,
+        "SERVICE_UNAVAILABLE",
+        "The worker container did not finish starting. Try again in a moment.",
         { status: 503, headers: { "retry-after": "10" } },
       );
     }

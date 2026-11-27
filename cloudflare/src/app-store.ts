@@ -7,7 +7,12 @@ import type {
 } from "../../orchestrator/dist/do/do-entry.mjs";
 import { sanitizeUnknown } from "../../orchestrator/src/server/infra/sanitize";
 import type { Env } from "./types";
-import { computeTableChecksum, quoteIdent, resolveInternalContainerSecret } from "./utils";
+import {
+  computeTableChecksum,
+  jsonError,
+  quoteIdent,
+  resolveInternalContainerSecret,
+} from "./utils";
 
 type DoEntryModule = typeof import("../../orchestrator/dist/do/do-entry.mjs");
 
@@ -28,7 +33,7 @@ const EXTRACTOR_RUN_TIMEOUT_MS = 10 * 60_000;
 const CAREERS_RUN_TIMEOUT_MS = 40_000;
 const CAREERS_LEARN_TIMEOUT_MS = 200_000;
 
-async function readRenderError(response: Response): Promise<unknown> {
+async function readBoundedErrorBody(response: Response): Promise<unknown> {
   const reader = response.body?.getReader();
   if (!reader) return null;
   const bytes = new Uint8Array(2048);
@@ -129,7 +134,7 @@ export class AppStore extends DurableObject<Env> {
             signal,
           });
           if (!response.ok) {
-            const responseError = await readRenderError(response).catch(() => "[unavailable]");
+            const responseError = await readBoundedErrorBody(response).catch(() => "[unavailable]");
             throw Object.assign(
               new Error(`Scraper container failed with HTTP ${response.status}.`),
               { details: { status: response.status, response: responseError } },
@@ -210,7 +215,7 @@ export class AppStore extends DurableObject<Env> {
             signal,
           });
           if (!response.ok) {
-            const responseError = await readRenderError(response).catch(() => "[unavailable]");
+            const responseError = await readBoundedErrorBody(response).catch(() => "[unavailable]");
             // The service logs sanitized details; only the message reaches the user.
             throw Object.assign(
               new Error(`PDF render container failed with HTTP ${response.status}.`),
@@ -380,7 +385,7 @@ export class AppStore extends DurableObject<Env> {
     const url = new URL(request.url);
 
     if (url.pathname === "/_cf/do/export" && request.method === "GET") {
-      return this.handleExport(url);
+      return this.handleExport(request, url);
     }
 
     if (url.pathname === "/_cf/do/import" && request.method === "POST") {
@@ -418,7 +423,7 @@ export class AppStore extends DurableObject<Env> {
     return handleAsNodeRequest(DO_EXPRESS_PORT, request, this.env);
   }
 
-  private async handleExport(url: URL): Promise<Response> {
+  private async handleExport(request: Request, url: URL): Promise<Response> {
     const targetTable = url.searchParams.get("table");
     const limitParam = url.searchParams.get("limit");
     const offsetParam = url.searchParams.get("offset");
@@ -431,16 +436,7 @@ export class AppStore extends DurableObject<Env> {
       : availableTables;
 
     if (targetTable && tableNames.length === 0) {
-      return Response.json(
-        {
-          ok: false,
-          error: {
-            code: "NOT_FOUND",
-            message: `Table not found: ${targetTable}`,
-          },
-        },
-        { status: 404 },
-      );
+      return jsonError(request, "NOT_FOUND", `Table not found: ${targetTable}`, { status: 404 });
     }
 
     const tables: Record<string, Record<string, unknown>[]> = {};
@@ -465,13 +461,7 @@ export class AppStore extends DurableObject<Env> {
     try {
       body = (await request.json()) as ImportRequestBody;
     } catch {
-      return Response.json(
-        {
-          ok: false,
-          error: { code: "INVALID_REQUEST", message: "Invalid JSON body" },
-        },
-        { status: 400 },
-      );
+      return jsonError(request, "INVALID_REQUEST", "Invalid JSON body", { status: 400 });
     }
 
     const tables = body.tables ?? {};
@@ -482,15 +472,13 @@ export class AppStore extends DurableObject<Env> {
 
     for (const [tableName, rows] of Object.entries(tables)) {
       if (!Array.isArray(rows)) {
-        return Response.json(
+        return jsonError(
+          request,
+          "INVALID_REQUEST",
+          `Expected array of rows for table ${tableName}`,
           {
-            ok: false,
-            error: {
-              code: "INVALID_REQUEST",
-              message: `Expected array of rows for table ${tableName}`,
-            },
+            status: 400,
           },
-          { status: 400 },
         );
       }
 
@@ -562,20 +550,18 @@ export class AppStore extends DurableObject<Env> {
     }
 
     if (body.checksums && !verified) {
-      return Response.json(
+      return jsonError(
+        request,
+        "UNPROCESSABLE_ENTITY",
+        "Table SHA-256 checksum verification failed after import.",
         {
-          ok: false,
-          error: {
-            code: "UNPROCESSABLE_ENTITY",
-            message: "Table SHA-256 checksum verification failed after import.",
-            details: {
-              expected: body.checksums,
-              actual: actualChecksums,
-              rowCounts: actualCounts,
-            },
+          status: 422,
+          details: {
+            expected: body.checksums,
+            actual: actualChecksums,
+            rowCounts: actualCounts,
           },
         },
-        { status: 422 },
       );
     }
 

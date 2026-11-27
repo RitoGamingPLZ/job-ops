@@ -1,21 +1,8 @@
+import { toTermProgress } from "@shared/extractor-progress";
 import { resolveSearchCities } from "@shared/search-cities.js";
-import type { ExtractorManifest, ExtractorProgressEvent } from "@shared/types/extractors";
-import { type FreeHireProgressEvent, runFreeHire } from "./run";
-
-function toProgress(event: FreeHireProgressEvent): ExtractorProgressEvent {
-  const complete = event.type === "term_complete";
-  return {
-    phase: "list",
-    termsProcessed: complete ? event.termIndex : event.termIndex - 1,
-    termsTotal: event.termTotal,
-    currentUrl: event.searchTerm,
-    jobPagesEnqueued: complete ? event.jobsFoundTerm : undefined,
-    jobPagesProcessed: complete ? event.jobsFoundTerm : undefined,
-    detail: complete
-      ? `FreeHire: completed ${event.termIndex}/${event.termTotal} (${event.searchTerm}) with ${event.jobsFoundTerm ?? 0} jobs`
-      : `FreeHire: term ${event.termIndex}/${event.termTotal} (${event.searchTerm})`,
-  };
-}
+import { parseLegacyWorkplaceTypes } from "@shared/settings-registry";
+import type { ExtractorManifest } from "@shared/types/extractors";
+import { runFreeHire } from "./run";
 
 export const manifest: ExtractorManifest = {
   id: "freehire",
@@ -39,13 +26,13 @@ export const manifest: ExtractorManifest = {
         list: context.sourceLocationPlan?.requestedCities,
         single: context.settings.searchCities ?? context.settings.jobspyLocation,
       }),
-      workplaceTypes: context.settings.workplaceTypes
-        ? JSON.parse(context.settings.workplaceTypes)
-        : undefined,
+      workplaceTypes: parseLegacyWorkplaceTypes(context.settings.workplaceTypes),
       maxJobsPerTerm: Number.isFinite(parsedLimit) ? parsedLimit : 50,
       shouldCancel: context.shouldCancel,
       onProgress: (event) => {
-        if (!context.shouldCancel?.()) context.onProgress?.(toProgress(event));
+        if (!context.shouldCancel?.()) {
+          context.onProgress?.(toTermProgress(event, { label: "FreeHire" }));
+        }
       },
     });
 
@@ -54,5 +41,3 @@ export const manifest: ExtractorManifest = {
       : { success: false, jobs: [], error: result.error };
   },
 };
-
-export default manifest;

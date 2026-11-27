@@ -2,6 +2,7 @@ import { EXTRACTOR_SOURCE_METADATA, PIPELINE_EXTRACTOR_SOURCE_IDS } from "@share
 import { createAppSettings, createJob } from "@shared/testing/factories.js";
 import { describe, expect, it } from "vitest";
 import {
+  compareJobs,
   extractEmploymentTypes,
   getEnabledSources,
   getJobCounts,
@@ -11,6 +12,15 @@ import {
 } from "./utils";
 
 describe("orchestrator utils", () => {
+  it.each(["asc", "desc"] as const)("sorts missing scores last in %s order", (direction) => {
+    const scored = createJob({ suitabilityScore: 0 });
+    const missing = createJob({ suitabilityScore: null });
+    const sort = { key: "score", direction } as const;
+
+    expect(compareJobs(scored, missing, sort)).toBeLessThan(0);
+    expect(compareJobs(missing, scored, sort)).toBeGreaterThan(0);
+  });
+
   it("enables adzuna only when both app id and key are configured", () => {
     const withCreds = createAppSettings({
       adzunaAppId: "app-id",

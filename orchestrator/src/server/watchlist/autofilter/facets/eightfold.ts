@@ -1,3 +1,5 @@
+import { createBudgetSignal, fetchWatchlist } from "@server/watchlist/adapters/http";
+import { rankFacetValues } from "./shared";
 import { badRequest, upstreamError } from "@infra/errors";
 import {
   eightfoldWatchlistAdapter,
@@ -34,23 +36,15 @@ export const discoverEightfoldFacets: FacetDiscovery = async ({ careersUrl, sign
   url.searchParams.set("domain", microsoft ? "microsoft.com" : "netflix.com");
   if (microsoft) url.searchParams.set("start", "0");
   else url.searchParams.set("num", "1");
-  const response = await fetch(url.href, {
-    redirect: "manual",
-    signal: signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(25_000)])
-      : AbortSignal.timeout(25_000),
-    headers: { accept: "application/json" },
-  });
   // In particular, do not retry PCSX 429s during facet discovery.
-  if (!response.ok) throw upstreamError(`Eightfold facets returned HTTP ${response.status}.`);
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch (error) {
-    if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
-      throw error;
-    throw upstreamError("Eightfold facets returned invalid JSON.");
-  }
+  let payload: unknown = await fetchWatchlist({
+    url: url.href,
+    signal: createBudgetSignal(signal),
+    headers: { accept: "application/json" },
+    maxRetries: 0,
+    formatHttpError: ({ status }) => upstreamError(`Eightfold facets returned HTTP ${status}.`),
+    formatInvalidBodyError: () => upstreamError("Eightfold facets returned invalid JSON."),
+  });
   if (microsoft) {
     const envelope = z.object({ status: z.literal(200), data: z.unknown() }).safeParse(payload);
     if (!envelope.success)
@@ -103,16 +97,15 @@ export const discoverEightfoldFacets: FacetDiscovery = async ({ careersUrl, sign
         if (!isEightfoldFacetKey(key)) continue;
         const counts = recordSchema.safeParse(raw);
         if (!counts.success) continue;
-        const values = Object.entries(counts.data)
-          .flatMap(([value, count]) => {
-            const text = optionSchema.safeParse({ value });
-            const number = countSchema.safeParse(count);
-            return text.success && number.success
-              ? [{ value: text.data.value, count: number.data }]
-              : [];
-          })
-          .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
-          .slice(0, 60);
+        const facetCounts = new Map<string, number>();
+        for (const [value, count] of Object.entries(counts.data)) {
+          const text = optionSchema.safeParse({ value });
+          const number = countSchema.safeParse(count);
+          if (text.success && number.success) {
+            facetCounts.set(text.data.value, number.data);
+          }
+        }
+        const values = rankFacetValues(facetCounts);
         if (values.length) params.push({ key, multi: true, values });
       }
   }

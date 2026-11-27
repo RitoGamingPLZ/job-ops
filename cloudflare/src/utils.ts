@@ -70,13 +70,22 @@ export function jsonError(
   request: Request,
   code: string,
   message: string,
-  init: ResponseInit,
+  init: ResponseInit & { details?: unknown },
 ): Response {
   const requestId = request.headers.get("x-request-id") || crypto.randomUUID();
-  const headers = new Headers(init.headers);
+  const { details, ...responseInit } = init;
+  const headers = new Headers(responseInit.headers);
   headers.set("x-request-id", requestId);
   return Response.json(
-    { ok: false, error: { code, message }, meta: { requestId } },
-    { ...init, headers },
+    {
+      ok: false,
+      error: {
+        code,
+        message,
+        ...(details !== undefined ? { details } : {}),
+      },
+      meta: { requestId },
+    },
+    { ...responseInit, headers },
   );
 }

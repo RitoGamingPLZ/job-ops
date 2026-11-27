@@ -13,6 +13,7 @@
   "dependencies": {
     "browser-utils": "^0.0.1",
     "job-ops-shared": "^1.0.0",
+    "playwright": "^1.59.1",
     "tsx": "^4.4.0"
   },
   "devDependencies": {

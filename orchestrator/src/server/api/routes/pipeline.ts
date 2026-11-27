@@ -274,17 +274,7 @@ pipelineRouter.post("/search-presets", async (req: Request, res: Response) => {
 
     ok(res, await pipelineSearchPresetsRepo.createPipelineSearchPreset(input), 201);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(res, toAppError(error));
-    }
-    fail(
-      res,
-      new AppError({
-        status: 500,
-        code: "INTERNAL_ERROR",
-        message: error instanceof Error ? error.message : "Unknown error",
-      }),
-    );
+    fail(res, toAppError(error));
   }
 });
 
@@ -308,17 +298,7 @@ pipelineRouter.patch("/search-presets/:id", async (req: Request, res: Response) 
     if (!updated) return fail(res, notFound("Saved search not found"));
     ok(res, updated);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(res, toAppError(error));
-    }
-    fail(
-      res,
-      new AppError({
-        status: 500,
-        code: "INTERNAL_ERROR",
-        message: error instanceof Error ? error.message : "Unknown error",
-      }),
-    );
+    fail(res, toAppError(error));
   }
 });
 
@@ -361,17 +341,7 @@ pipelineRouter.post("/search-plan", async (req: Request, res: Response) => {
     const input = pipelineSearchPlanSchema.parse(req.body ?? {});
     ok(res, await planPipelineSearch(input));
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(res, toAppError(error));
-    }
-    fail(
-      res,
-      new AppError({
-        status: 500,
-        code: "INTERNAL_ERROR",
-        message: error instanceof Error ? error.message : "Unknown error",
-      }),
-    );
+    fail(res, toAppError(error));
   }
 });
 
@@ -438,23 +408,7 @@ pipelineRouter.post("/run", async (req: Request, res: Response) => {
     );
     ok(res, { message: "Search started" });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(res, toAppError(error));
-    }
-    if (error instanceof Error && error.name === "AbortError") {
-      return fail(res, requestTimeout("Request timed out"));
-    }
-    if (error instanceof AppError) {
-      return fail(res, error);
-    }
-    fail(
-      res,
-      new AppError({
-        status: 500,
-        code: "INTERNAL_ERROR",
-        message: error instanceof Error ? error.message : "Unknown error",
-      }),
-    );
+    fail(res, toAppError(error));
   }
 });
 
@@ -472,20 +426,7 @@ pipelineRouter.put("/scheduled-search", async (req: Request, res: Response) => {
     await saveScheduledSearch(runPipelineSchema.parse(req.body));
     ok(res, { message: "Daily search saved" });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(res, toAppError(error));
-    }
-    if (error instanceof AppError) {
-      return fail(res, error);
-    }
-    fail(
-      res,
-      new AppError({
-        status: 500,
-        code: "INTERNAL_ERROR",
-        message: error instanceof Error ? error.message : "Unknown error",
-      }),
-    );
+    fail(res, toAppError(error));
   }
 });
 
@@ -709,17 +650,7 @@ pipelineRouter.post(
         }
       }
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return fail(res, toAppError(error));
-      }
-      fail(
-        res,
-        new AppError({
-          status: 500,
-          code: "INTERNAL_ERROR",
-          message: error instanceof Error ? error.message : "Unknown error",
-        }),
-      );
+      fail(res, toAppError(error));
     } finally {
       finishSolve?.();
       revokeChallengeViewerSessions(getPrivateDataScope().scopeKey);
@@ -748,16 +679,6 @@ pipelineRouter.post("/skip-challenge-search", async (req: Request, res: Response
     });
     ok(res, result);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(res, toAppError(error));
-    }
-    fail(
-      res,
-      new AppError({
-        status: 500,
-        code: "INTERNAL_ERROR",
-        message: error instanceof Error ? error.message : "Unknown error",
-      }),
-    );
+    fail(res, toAppError(error));
   }
 });

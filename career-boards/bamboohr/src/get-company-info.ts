@@ -1,3 +1,4 @@
+import { CAREER_BOARD_DEFAULT_USER_AGENT } from "../../../shared/src/career-board-http";
 import { fetchBamboohrJson, optionalString, requiredString } from "./http";
 import { parseBamboohrUrl } from "./bamboohr-url";
 
@@ -25,10 +26,6 @@ export interface FetchBamboohrCompanyInfoOptions {
   userAgent?: string;
 }
 
-const DEFAULT_USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
-
 export async function getCompanyInfo(
   options: FetchBamboohrCompanyInfoOptions,
 ): Promise<{ company: NormalizedBamboohrCompanyInfo }> {
@@ -44,7 +41,7 @@ export async function getCompanyInfo(
     headers: {
       accept: "application/json",
       referer: parsed.canonicalCareersUrl,
-      "user-agent": options.userAgent ?? DEFAULT_USER_AGENT,
+      "user-agent": options.userAgent ?? CAREER_BOARD_DEFAULT_USER_AGENT,
       ...options.headers,
     },
   });

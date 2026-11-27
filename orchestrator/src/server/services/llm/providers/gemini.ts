@@ -8,7 +8,6 @@ export const geminiStrategy = createProviderStrategy({
   defaultBaseUrl: "https://generativelanguage.googleapis.com",
   requiresApiKey: true,
   modes: ["json_schema", "json_object", "none"],
-  validationPaths: ["/v1beta/models"],
   buildRequest: ({ mode, baseUrl, apiKey, model, messages, jsonSchema }) => {
     const { systemInstruction, contents } = toGeminiContents(messages);
     const body: Record<string, unknown> = {
@@ -43,6 +42,7 @@ export const geminiStrategy = createProviderStrategy({
     const parts = getNestedValue(response, ["candidates", 0, "content", "parts"]);
     if (!Array.isArray(parts)) return null;
     const text = parts
+      .filter((part) => !getNestedValue(part, ["thought"]))
       .map((part) => getNestedValue(part, ["text"]))
       .filter((part) => typeof part === "string")
       .join("");

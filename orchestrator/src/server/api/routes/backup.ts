@@ -1,7 +1,7 @@
-import { badRequest, conflict, forbidden, notFound, unprocessableEntity } from "@infra/errors";
+import { requireSystemAdmin } from "../require-admin";
+import { badRequest, conflict, notFound, unprocessableEntity } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
 import { logger } from "@infra/logger";
-import { isSystemAdmin } from "@infra/request-context";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { isDemoMode, sendDemoBlocked } from "@server/config/demo";
 import {
@@ -19,12 +19,6 @@ import {
 import { type Request, type Response, Router } from "express";
 
 export const backupRouter = Router();
-
-function requireSystemAdmin(res: Response): boolean {
-  if (isSystemAdmin()) return true;
-  fail(res, forbidden("System admin access is required"));
-  return false;
-}
 
 function normalizeParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");

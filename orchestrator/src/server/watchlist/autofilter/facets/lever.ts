@@ -1,3 +1,5 @@
+import { createBudgetSignal, fetchWatchlist } from "@server/watchlist/adapters/http";
+import { parseLeverUrl } from "@server/watchlist/adapters/lever";
 import { rankFacetValues } from "./shared";
 import { badRequest, upstreamError } from "@infra/errors";
 import { z } from "zod";
@@ -25,35 +27,19 @@ const postingsSchema = z.array(
 );
 
 export const discoverLeverFacets: FacetDiscovery = async ({ careersUrl, signal }) => {
-  const url = new URL(careersUrl);
-  const company = url.pathname.match(
-    /^\/([a-zA-Z0-9_-]+)(?:\/[a-zA-Z0-9-]+(?:\/apply)?)?\/?$/,
-  )?.[1];
-  if (
-    url.protocol !== "https:" ||
-    !["jobs.lever.co", "jobs.eu.lever.co"].includes(url.host) ||
-    url.username ||
-    url.password ||
-    !company
-  ) {
+  let parsedUrl: ReturnType<typeof parseLeverUrl>;
+  try {
+    parsedUrl = parseLeverUrl(careersUrl);
+  } catch {
     throw badRequest("Use an HTTPS jobs.lever.co company URL.");
   }
-  const host = url.hostname === "jobs.eu.lever.co" ? "api.eu.lever.co" : "api.lever.co";
-  const response = await fetch(`https://${host}/v0/postings/${company}?mode=json`, {
-    redirect: "manual",
-    signal: signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(25_000)])
-      : AbortSignal.timeout(25_000),
+  const data = await fetchWatchlist({
+    url: `${parsedUrl.apiUrl}?mode=json`,
+    signal: createBudgetSignal(signal),
+    maxRetries: 0,
+    formatHttpError: ({ status }) => upstreamError(`Lever facets returned HTTP ${status}.`),
+    formatInvalidBodyError: () => upstreamError("Lever facets returned invalid JSON."),
   });
-  if (!response.ok) throw upstreamError(`Lever facets returned HTTP ${response.status}.`);
-  let data: unknown;
-  try {
-    data = await response.json();
-  } catch (error) {
-    if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
-      throw error;
-    throw upstreamError("Lever facets returned invalid JSON.");
-  }
   const parsed = postingsSchema.safeParse(data);
   if (!parsed.success) throw upstreamError("Lever facets returned invalid posting data.");
   const jobs = [...new Map(parsed.data.map((job) => [job.id, job])).values()];

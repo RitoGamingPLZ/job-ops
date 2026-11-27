@@ -1,8 +1,33 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { logger } from "@infra/logger";
+
+export function resolveRendererAssetPath(relativePath: string): string {
+  const candidates: string[] = [];
+  try {
+    if (import.meta.url.startsWith("file:")) {
+      const moduleDir = dirname(fileURLToPath(import.meta.url));
+      candidates.push(
+        join(moduleDir, relativePath),
+        join(moduleDir, "../../src/server/services/resume-renderer", relativePath),
+      );
+    }
+  } catch {
+    // Fall through to cwd-based resolution below.
+  }
+
+  const cwd = process.cwd();
+  candidates.push(
+    join(cwd, "src/server/services/resume-renderer", relativePath),
+    join(cwd, "orchestrator/src/server/services/resume-renderer", relativePath),
+  );
+
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[candidates.length - 1];
+}
 
 export async function runResumeCompiler(args: {
   binary: string;

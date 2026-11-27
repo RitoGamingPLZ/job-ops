@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { anthropicStrategy } from "./anthropic";
 import { apiRouteStrategy } from "./api-route";
 import { atlasCloudStrategy } from "./atlascloud";
+import { extractChatCompletionsText } from "./factory";
 import { geminiStrategy } from "./gemini";
 import { glmStrategy } from "./glm";
 import { liteLlmStrategy } from "./litellm";
@@ -259,14 +260,19 @@ describe("provider adapters", () => {
     const response = {
       choices: [{ message: { content: "ok" } }],
     };
-    expect(openRouterStrategy.extractText(response)).toBe("ok");
-    expect(atlasCloudStrategy.extractText(response)).toBe("ok");
-    expect(liteLlmStrategy.extractText(response)).toBe("ok");
-    expect(orcaRouterStrategy.extractText(response)).toBe("ok");
-    expect(requestyStrategy.extractText(response)).toBe("ok");
-    expect(glmStrategy.extractText(response)).toBe("ok");
-    expect(lmStudioStrategy.extractText(response)).toBe("ok");
-    expect(ollamaStrategy.extractText(response)).toBe("ok");
+    expect(extractChatCompletionsText(response)).toBe("ok");
+    for (const strategy of [
+      openRouterStrategy,
+      atlasCloudStrategy,
+      liteLlmStrategy,
+      orcaRouterStrategy,
+      requestyStrategy,
+      glmStrategy,
+      lmStudioStrategy,
+      ollamaStrategy,
+    ]) {
+      expect(strategy.extractText).toBe(extractChatCompletionsText);
+    }
   });
 
   it("sends optional bearer auth for Ollama chat requests", () => {

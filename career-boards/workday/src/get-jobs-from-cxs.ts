@@ -1,4 +1,9 @@
 // packages/sources/workday/src/get-jobs-from-cxs.ts
+import { CAREER_BOARD_DEFAULT_USER_AGENT } from "../../../shared/src/career-board-http";
+import { toOptionalString } from "../../../shared/src/utils/type-conversion";
+import { fetchWorkdayCxsJson, requiredWorkdayString, WorkdayCxsFetchError } from "./http";
+
+export { WorkdayCxsFetchError };
 
 export interface WorkdayCxsFacetValue {
   descriptor?: string;
@@ -78,25 +83,8 @@ export interface FetchWorkdayCxsJobsResult {
   rawResponses?: WorkdayCxsJobsResponse[];
 }
 
-export class WorkdayCxsFetchError extends Error {
-  readonly status?: number;
-  readonly url: string;
-  readonly responseBody?: string;
-
-  constructor(args: { message: string; url: string; status?: number; responseBody?: string }) {
-    super(args.message);
-    this.name = "WorkdayCxsFetchError";
-    this.url = args.url;
-    this.status = args.status;
-    this.responseBody = args.responseBody;
-  }
-}
-
 const DEFAULT_LIMIT = 20;
 const DEFAULT_MAX_JOBS = 500;
-const DEFAULT_USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
 
 /**
  * Fetches and paginates a Workday Candidate Experience jobs endpoint.
@@ -142,7 +130,7 @@ export async function getJobsFromCxs(
       appliedFacets: options.appliedFacets ?? {},
       signal: options.signal,
       headers: options.headers,
-      userAgent: options.userAgent ?? DEFAULT_USER_AGENT,
+      userAgent: options.userAgent ?? CAREER_BOARD_DEFAULT_USER_AGENT,
       acceptLanguage: options.acceptLanguage ?? "en-US",
     });
 
@@ -197,7 +185,8 @@ async function fetchCxsPage(
     searchText: args.searchText,
   };
 
-  const response = await fetchFn(args.url, {
+  return fetchWorkdayCxsJson<WorkdayCxsJobsResponse>(fetchFn, {
+    url: args.url,
     method: "POST",
     signal: args.signal,
     headers: {
@@ -210,45 +199,30 @@ async function fetchCxsPage(
       ...args.headers,
     },
     body: JSON.stringify(body),
+    errorContext: "Workday CXS request",
   });
-
-  const responseText = await response.text();
-
-  if (!response.ok) {
-    throw new WorkdayCxsFetchError({
-      url: args.url.toString(),
-      status: response.status,
-      message: `Workday CXS request failed with HTTP ${response.status}.`,
-      responseBody: responseText.slice(0, 2_000),
-    });
-  }
-
-  try {
-    return JSON.parse(responseText) as WorkdayCxsJobsResponse;
-  } catch {
-    throw new WorkdayCxsFetchError({
-      url: args.url.toString(),
-      status: response.status,
-      message: "Workday CXS response was not valid JSON.",
-      responseBody: responseText.slice(0, 2_000),
-    });
-  }
 }
 
 function normalizeWorkdayCxsPosting(
   posting: WorkdayCxsJobPosting,
   args: { careersBaseUrl: string; company?: string },
 ): NormalizedWorkdayJob {
-  const externalPath = requiredString(posting.externalPath, "externalPath");
-  const title = requiredString(posting.title, "title");
+  const externalPath = requiredWorkdayString(posting.externalPath, "externalPath", {
+    url: "unknown",
+    contextLabel: "Workday job posting",
+  });
+  const title = requiredWorkdayString(posting.title, "title", {
+    url: "unknown",
+    contextLabel: "Workday job posting",
+  });
 
   return {
     source: "workday",
     externalId: extractExternalId(posting, externalPath),
     title,
     company: args.company,
-    locationText: optionalString(posting.locationsText),
-    postedOn: optionalString(posting.postedOn),
+    locationText: toOptionalString(posting.locationsText),
+    postedOn: toOptionalString(posting.postedOn),
     externalPath,
     jobUrl: buildJobUrl(args.careersBaseUrl, externalPath),
     raw: posting,
@@ -305,18 +279,6 @@ function extractExternalId(posting: WorkdayCxsJobPosting, externalPath: string):
   if (pathMatch?.[1]) return pathMatch[1];
 
   return externalPath;
-}
-
-function requiredString(value: unknown, fieldName: string): string {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  throw new WorkdayCxsFetchError({
-    url: "unknown",
-    message: `Workday job posting is missing required field: ${fieldName}.`,
-  });
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function clampPositiveInteger(value: number, min: number, max: number): number {

@@ -64,20 +64,10 @@ import pdfParse from "pdf-parse";
 import { listJobDocumentsByIds } from "../repositories/job-documents";
 import { getJobById, listJobNotesByIds } from "../repositories/jobs";
 import { getSetting } from "../repositories/settings";
+import { makePdfParseResult } from "../testing/pdf-parse";
 import { listJobPostApplicationEmailsByIds } from "./post-application/job-emails";
 import { getProfile } from "./profile";
 import { getWritingStyle } from "./writing-style";
-
-function makePdfParseResult(text: string) {
-  return {
-    numpages: 1,
-    numrender: 1,
-    info: {},
-    metadata: null,
-    version: "default" as const,
-    text,
-  };
-}
 
 function mockDocumentFile(buffer: Buffer) {
   const read = vi.fn(async (target: Buffer, offset: number, length: number, position: number) => {

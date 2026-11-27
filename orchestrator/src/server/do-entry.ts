@@ -7,11 +7,11 @@
 
 import { createServer, type Server } from "node:http";
 import type { Express } from "express";
-import adzunaManifest from "../../../extractors/adzuna/manifest";
-import freehireManifest from "../../../extractors/freehire/src/manifest";
-import hiringcafeManifest from "../../../extractors/hiringcafe/manifest";
-import jobindexManifest from "../../../extractors/jobindex/src/manifest";
-import jobspyManifest from "../../../extractors/jobspy/manifest";
+import { manifest as adzunaManifest } from "../../../extractors/adzuna/manifest";
+import { manifest as freehireManifest } from "../../../extractors/freehire/src/manifest";
+import { manifest as hiringcafeManifest } from "../../../extractors/hiringcafe/manifest";
+import { manifest as jobindexManifest } from "../../../extractors/jobindex/src/manifest";
+import { manifest as jobspyManifest } from "../../../extractors/jobspy/manifest";
 import { createApp } from "./app";
 import { createDurableObjectDrizzleDb, type DurableObjectStorageLike, setDb } from "./db/index";
 import {

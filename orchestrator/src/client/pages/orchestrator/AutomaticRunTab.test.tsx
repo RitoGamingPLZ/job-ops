@@ -65,51 +65,6 @@ vi.mock("@client/api", () => ({
   planPipelineSearch: vi.fn(),
 }));
 
-function ensureStorage(): Storage {
-  const existing = globalThis.localStorage as Partial<Storage> | undefined;
-  const hasStorageShape =
-    existing &&
-    typeof existing.getItem === "function" &&
-    typeof existing.setItem === "function" &&
-    typeof existing.removeItem === "function" &&
-    typeof existing.clear === "function";
-
-  if (hasStorageShape) {
-    return existing as Storage;
-  }
-
-  const store = new Map<string, string>();
-  const storage: Storage = {
-    get length() {
-      return store.size;
-    },
-    clear() {
-      store.clear();
-    },
-    getItem(key: string) {
-      const value = store.get(key);
-      return value ?? null;
-    },
-    key(index: number) {
-      return Array.from(store.keys())[index] ?? null;
-    },
-    removeItem(key: string) {
-      store.delete(key);
-    },
-    setItem(key: string, value: string) {
-      store.set(key, value);
-    },
-  };
-
-  Object.defineProperty(globalThis, "localStorage", {
-    value: storage,
-    configurable: true,
-    writable: true,
-  });
-
-  return storage;
-}
-
 describe("AutomaticRunTab", () => {
   const openConfigureDetails = () => {
     const trigger = screen.queryByRole("button", {
@@ -152,7 +107,7 @@ describe("AutomaticRunTab", () => {
       locations: ["Leeds", "Bradford", "Wakefield"],
     });
     vi.mocked(api.planPipelineSearch).mockReset();
-    ensureStorage().clear();
+    localStorage.clear();
     Element.prototype.hasPointerCapture ??= vi.fn(() => false);
     Element.prototype.setPointerCapture ??= vi.fn();
     Element.prototype.releasePointerCapture ??= vi.fn();

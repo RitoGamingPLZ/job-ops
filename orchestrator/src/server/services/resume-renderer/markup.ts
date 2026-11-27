@@ -1,26 +1,13 @@
-import { getLatexResumeSectionTitles } from "./document";
+import { getLatexResumeSectionTitles, ORDERABLE_SECTION_KEYS } from "./document";
 import type {
+  LatexResumeCustomFieldItem,
   LatexResumeDocument,
   LatexResumeEntry,
+  LatexResumeInterestItem,
   LatexResumeLanguageItem,
   LatexResumeOrderedSectionKey,
   LatexResumeSectionTitles,
 } from "./types";
-
-const DEFAULT_SECTION_ORDER: LatexResumeOrderedSectionKey[] = [
-  "profiles",
-  "experience",
-  "education",
-  "projects",
-  "skills",
-  "languages",
-  "interests",
-  "awards",
-  "certifications",
-  "publications",
-  "volunteer",
-  "references",
-];
 
 const ENTRY_SECTION_KINDS = {
   experience: "subheading",
@@ -48,7 +35,7 @@ export function renderOrderedSections(
     }) => string;
   },
 ): string[] {
-  return (document.sectionOrder ?? DEFAULT_SECTION_ORDER).map((key) =>
+  return (document.sectionOrder ?? ORDERABLE_SECTION_KEYS).map((key) =>
     key in ENTRY_SECTION_KINDS
       ? renderers.entry({
           title: titles[key as EntrySectionKey],
@@ -106,6 +93,47 @@ export function resolveSectionTitles(document: LatexResumeDocument): LatexResume
   return document.sectionTitles ?? getLatexResumeSectionTitles();
 }
 
-export function formatLanguageDetails(item: LatexResumeLanguageItem): string[] {
+function formatLanguageDetails(item: LatexResumeLanguageItem): string[] {
   return [item.fluency || "", item.level == null ? "" : `Level ${item.level}`].filter(Boolean);
+}
+
+export type LineSectionFormat = {
+  escape: (value: string) => string;
+  bold: (label: string) => string;
+  boldPair: (label: string, value: string) => string;
+  link: (label: string, url?: string | null) => string;
+};
+
+export function formatCustomFieldLines(
+  items: LatexResumeCustomFieldItem[],
+  format: LineSectionFormat,
+): string[] {
+  return items.map((item) => {
+    const value = item.url ? format.link(item.text, item.url) : format.escape(item.text);
+    if (!item.title) return value;
+    if (item.title === item.text) return format.bold(item.title);
+    return format.boldPair(item.title, value);
+  });
+}
+
+export function formatLanguageLines(
+  items: LatexResumeLanguageItem[],
+  format: LineSectionFormat,
+): string[] {
+  return items.map((item) => {
+    const detail = formatLanguageDetails(item).map(format.escape).join(" | ");
+    return detail ? format.boldPair(item.language, detail) : format.bold(item.language);
+  });
+}
+
+export function formatInterestLines(
+  items: LatexResumeInterestItem[],
+  format: LineSectionFormat,
+): string[] {
+  return items.map((item) => {
+    const keywords = item.keywords.map(format.escape);
+    return keywords.length > 0
+      ? format.boldPair(item.name, keywords.join(", "))
+      : format.bold(item.name);
+  });
 }

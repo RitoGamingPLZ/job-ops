@@ -1,3 +1,8 @@
+import { asyncPool } from "@server/utils/async-pool";
+import { getFreshMapEntry, setBoundedMapEntry } from "../adapters/common";
+import { extractBalancedJson, extractJsonLdObjects, findJsonLdJobPostings } from "../adapters/html";
+import { createBudgetSignal } from "../adapters/http";
+import { tryParseSafeHttpsUrl } from "../adapters/url";
 import { JSDOM } from "jsdom";
 import { isAllowedByRobots, loadPage } from "./fetch";
 import { type CrawledJob, type Recipe, SiteBlockedError } from "./types";
@@ -17,21 +22,11 @@ function jobId(url: string, recipe: Recipe): string | undefined {
 }
 
 function sameSite(value: string, base: string): string | null {
-  try {
-    const url = new URL(value, base);
-    if (
-      url.protocol !== "https:" ||
-      url.hostname !== new URL(base).hostname ||
-      url.port ||
-      url.username ||
-      url.password
-    )
-      return null;
-    url.hash = "";
-    return url.href;
-  } catch {
-    return null;
-  }
+  const baseUrl = tryParseSafeHttpsUrl(base);
+  const url = baseUrl ? tryParseSafeHttpsUrl(value, baseUrl) : null;
+  if (!url || !baseUrl || url.host !== baseUrl.host) return null;
+  url.hash = "";
+  return url.href;
 }
 
 // Bound scanning before parsing: page content is untrusted and may contain many
@@ -43,21 +38,7 @@ export function facetConfig(html: string | undefined): string | null {
   const assignment = html.slice(marker + 8, marker + 8 + 100_000);
   const start = /^\s*=\s*\{/.exec(assignment);
   if (!start) return null;
-  const offset = start[0].length - 1;
-  let depth = 0;
-  let quoted = false;
-  let escaped = false;
-  for (let i = offset; i < assignment.length; i++) {
-    const char = assignment[i];
-    if (quoted) {
-      if (escaped) escaped = false;
-      else if (char === "\\") escaped = true;
-      else if (char === '"') quoted = false;
-    } else if (char === '"') quoted = true;
-    else if (char === "{") depth++;
-    else if (char === "}" && --depth === 0) return assignment.slice(offset, i + 1);
-  }
-  return null;
+  return extractBalancedJson(assignment, start[0].length - 1, "{");
 }
 
 /** Infer query pagination from same-path links or public FacetWP pager metadata. */
@@ -145,20 +126,6 @@ function location(value: unknown): string | null {
   });
   return [...new Set(labels)].join("; ") || null;
 }
-function posting(value: unknown): Record<string, unknown> | null {
-  if (Array.isArray(value)) {
-    for (const entry of value) {
-      const found = posting(entry);
-      if (found) return found;
-    }
-    return null;
-  }
-  const data = record(value);
-  const types = Array.isArray(data["@type"]) ? data["@type"] : [data["@type"]];
-  if (types.includes("JobPosting") && text(data.title) && text(data.description)) return data;
-  return data["@graph"] ? posting(data["@graph"]) : null;
-}
-
 // Read nested microdata scopes (Place -> PostalAddress, Organization, etc.).
 function microdata(scope: Element): Record<string, unknown> {
   const result: Record<string, unknown> = {};
@@ -209,13 +176,9 @@ export function extractJob(html: string, url: string, recipe: Recipe): CrawledJo
           : null,
       };
     } else {
-      for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
-        try {
-          data = posting(JSON.parse(script.textContent ?? ""));
-        } catch {
-          // Malformed unrelated structured data must not hide another posting.
-        }
-        if (data) {
+      for (const candidate of findJsonLdJobPostings(extractJsonLdObjects(html))) {
+        if (text(candidate.title) && text(candidate.description)) {
+          data = candidate;
           fromJsonLd = true;
           break;
         }
@@ -283,10 +246,7 @@ export async function runRecipe(
   const loadSignal =
     stopAt === undefined
       ? signal
-      : AbortSignal.any([
-          ...(signal ? [signal] : []),
-          AbortSignal.timeout(Math.max(0, stopAt - Date.now()) + 3_000),
-        ]);
+      : createBudgetSignal(signal, Math.max(0, stopAt - Date.now()) + 3_000);
   const pattern = new RegExp(recipe.jobUrlPattern);
   const filtered =
     options.sourceUrl && new URL(options.sourceUrl).search
@@ -456,55 +416,49 @@ export async function runRecipe(
   }
   // Collect all cached candidates before spending the remaining budget on misses.
   for (const [url] of selected) {
-    const entry = options.bypassCache ? undefined : detailCache.get(url);
+    const entry = options.bypassCache ? undefined : getFreshMapEntry(detailCache, url);
     if (!entry) continue;
-    if (entry.expires <= Date.now() || entry.extraction !== extraction) {
+    if (entry.extraction !== extraction) {
       detailCache.delete(url);
       continue;
     }
     collect(url, entry.job);
   }
-  let index = 0;
   let completed = 0;
   let fresh = 0;
-  let fatal: unknown;
-  async function worker() {
-    while (index < selected.length && !fatal && !stopped()) {
-      const [url] = selected[index++];
-      if (jobs.has(url)) continue;
+  await asyncPool({
+    items: selected,
+    concurrency: 3,
+    shouldStop: () => stopped(),
+    task: async ([url]) => {
+      if (jobs.has(url)) return;
       try {
         const page = await read(url, recipe.detail.kind === "selectors" && recipe.detail.render);
-        if (!page) break;
+        if (!page) return;
         completed++;
         const job = extractJob(page.html, page.url, recipe);
         if (job) {
           fresh++;
           job.id = jobId(url, recipe) || jobId(page.url, recipe) || url;
-          detailCache.delete(url);
-          detailCache.set(url, {
-            job: { ...job },
-            expires: Date.now() + DETAIL_CACHE_TTL_MS,
-            extraction,
-          });
-          while (detailCache.size > DETAIL_CACHE_MAX_ENTRIES) {
-            const oldest = detailCache.keys().next().value;
-            if (oldest !== undefined) detailCache.delete(oldest);
-          }
+          setBoundedMapEntry(
+            detailCache,
+            url,
+            {
+              job: { ...job },
+              expires: Date.now() + DETAIL_CACHE_TTL_MS,
+              extraction,
+            },
+            DETAIL_CACHE_MAX_ENTRIES,
+          );
           collect(url, job);
         }
       } catch (error) {
         // A robots rule on one posting must not block the whole host; skip that posting.
-        if (error instanceof SiteBlockedError && error.reason === ROBOTS_DISALLOWED_URL) continue;
-        try {
-          rethrowFatal(error);
-        } catch (error) {
-          fatal = error;
-        }
+        if (error instanceof SiteBlockedError && error.reason === ROBOTS_DISALLOWED_URL) return;
+        rethrowFatal(error);
       }
-    }
-  }
-  await Promise.all([worker(), worker(), worker()]);
-  if (fatal) throw fatal;
+    },
+  });
   signal?.throwIfAborted();
   if ((selected.length && !jobs.size) || (completed > 0 && fresh === 0))
     throw new Error("All selected careers job pages failed or contained no job.");

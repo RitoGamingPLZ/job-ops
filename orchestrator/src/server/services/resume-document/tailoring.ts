@@ -11,7 +11,7 @@ export type TailoredSkillsInput =
   | null
   | undefined;
 
-export type TailorChunkInput = {
+type TailorChunkInput = {
   headline?: string | null;
   summary?: string | null;
   skills?: TailoredSkillsInput;

@@ -1,6 +1,9 @@
-import { watchlistRequestSignal } from "./http";
-import timers from "node:timers/promises";
+import { parseCatalogSourcesLenient, resolveCustomLabel } from "./common";
+import { extractJsonLdObjects, findJsonLdJobPostings } from "./html";
+import { createBudgetSignal, fetchWatchlist } from "./http";
+import { hasPlainHttpsAuthority, parseWatchlistUrl } from "./url";
 import { badRequest, upstreamError } from "@infra/errors";
+import { escapeHtmlMarkup } from "@infra/html";
 import type { WatchlistSelectedSource } from "@shared/types";
 import { convert } from "html-to-text";
 import { z } from "zod";
@@ -32,21 +35,14 @@ type Job = z.infer<typeof jobSchema>;
 // only its own public postings so other selected boards remain cached for import.
 const listedJobs = new Map<string, Map<string, Job>>();
 
-function parseUrl(value: string) {
-  let url: URL;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    throw badRequest("Invalid Ashby careers URL.");
-  }
-  const authority = value.trim().match(/^https:\/\/([^/?#]+)/i)?.[1];
+export function parseAshbyUrl(value: string) {
+  const url = parseWatchlistUrl(value, "Invalid Ashby careers URL.");
   const match = url.pathname.match(
     /^\/([a-zA-Z0-9][a-zA-Z0-9_-]*)(?:\/([a-zA-Z0-9-]+)(?:\/application)?)?\/?$/,
   );
   if (
     url.origin !== ORIGIN ||
-    !authority ||
-    /[:@]/.test(authority) ||
+    !hasPlainHttpsAuthority(value) ||
     url.username ||
     url.password ||
     !match
@@ -54,6 +50,7 @@ function parseUrl(value: string) {
     throw badRequest("Use an HTTPS jobs.ashbyhq.com company or posting URL.");
   return { company: match[1].toLowerCase(), id: match[2] };
 }
+const parseUrl = parseAshbyUrl;
 function boardUrl(company: string) {
   return `${ORIGIN}/${company}`;
 }
@@ -61,26 +58,15 @@ function postingUrl(company: string, id: string) {
   return `${boardUrl(company)}/${id}`;
 }
 async function request(url: string, signal: AbortSignal) {
-  for (let attempt = 0; attempt <= 3; attempt++) {
-    signal.throwIfAborted();
-    const response = await fetch(url, { signal, redirect: "manual" });
-    if (response.status === 429 && attempt < 3) {
-      const retryAfter = response.headers.get("retry-after");
-      const seconds = retryAfter?.trim() ? Number(retryAfter) : Number.NaN;
-      const date = retryAfter ? Date.parse(retryAfter) : Number.NaN;
-      const wait = Number.isFinite(seconds)
-        ? Math.max(0, seconds * 1000)
-        : Number.isFinite(date)
-          ? Math.max(0, date - Date.now())
-          : [1000, 3000, 8000][attempt];
-      await response.body?.cancel();
-      await timers.setTimeout(Math.min(wait, 25_000), undefined, { signal });
-      continue;
-    }
-    if (!response.ok) throw upstreamError(`Ashby returned HTTP ${response.status}.`);
-    return response;
-  }
-  throw upstreamError("Ashby retry limit exceeded.");
+  return fetchWatchlist({
+    url,
+    signal,
+    maxRetries: 3,
+    retryAfterMaxMs: 25_000,
+    backoffScheduleMs: [1000, 3000, 8000],
+    responseType: "response",
+    formatHttpError: ({ status }) => upstreamError(`Ashby returned HTTP ${status}.`),
+  });
 }
 function structureError() {
   return upstreamError(
@@ -135,7 +121,7 @@ function location(job: Job) {
 }
 function description(job: Job) {
   if (job.descriptionHtml?.trim()) return job.descriptionHtml;
-  return `<p>${(job.descriptionPlain ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>`;
+  return `<p>${escapeHtmlMarkup(job.descriptionPlain ?? "").replace(/\n/g, "<br>")}</p>`;
 }
 async function details(
   source: WatchlistSelectedSource,
@@ -151,7 +137,7 @@ async function details(
   if (cached) return cached;
   // The public API has no single-posting endpoint. Fetch just this posting's
   // public page and read its observed JobPosting JSON-LD on a cache miss.
-  const response = await request(postingUrl(company, ref.id), watchlistRequestSignal(signal));
+  const response = await request(postingUrl(company, ref.id), createBudgetSignal(signal));
   const html = await response.text();
   const placeSchema = z.object({
     address: z.object({
@@ -170,15 +156,7 @@ async function details(
     jobLocationType: z.string().optional(),
     jobLocation: z.union([placeSchema, z.array(placeSchema)]).optional(),
   });
-  for (const script of html.matchAll(
-    /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script\s*>/gi,
-  )) {
-    let data: unknown;
-    try {
-      data = JSON.parse(script[1]);
-    } catch {
-      continue;
-    }
+  for (const data of findJsonLdJobPostings(extractJsonLdObjects(html))) {
     const parsed = schema.safeParse(data);
     if (!parsed.success) continue;
     const job = parsed.data;
@@ -229,23 +207,15 @@ export const ashbyWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsBranding: false,
   },
   parseCatalogSources(entries) {
-    return entries.flatMap((entry) => {
-      const parsed = sourceSchema.safeParse(entry);
-      if (!parsed.success) return [];
-      try {
-        const { company } = parseUrl(parsed.data.ashbyUrl);
-        return [
-          {
-            id: `ashby:${company}`,
-            label: parsed.data.label,
-            sourceType: "ashby",
-            careersUrl: boardUrl(company),
-            cxsJobsUrl: null,
-          },
-        ];
-      } catch {
-        return [];
-      }
+    return parseCatalogSourcesLenient(entries, sourceSchema, (parsed) => {
+      const { company } = parseUrl(parsed.ashbyUrl);
+      return {
+        id: `ashby:${company}`,
+        label: parsed.label,
+        sourceType: "ashby",
+        careersUrl: boardUrl(company),
+        cxsJobsUrl: null,
+      };
     });
   },
   hydrateSelectedSource(source) {
@@ -262,18 +232,15 @@ export const ashbyWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   async normalizeCustomSelection(input) {
     const { company } = parseUrl(input.careersUrl);
-    await board(company, watchlistRequestSignal());
+    await board(company, createBudgetSignal());
     return {
-      label:
-        input.label?.trim() && input.label.trim() !== input.careersUrl.trim()
-          ? input.label.trim()
-          : company,
+      label: resolveCustomLabel(input.label, input.careersUrl, company),
       careersUrl: boardUrl(company),
     };
   },
   async fetchJobs({ source, signal }) {
     const { company } = parseUrl(source.careersUrl);
-    const all = await board(company, watchlistRequestSignal(signal));
+    const all = await board(company, createBudgetSignal(signal));
     const jobs = [...new Map(all.map((job) => [job.id, job])).values()]
       .sort(
         (a, b) => (Date.parse(b.publishedAt ?? "") || 0) - (Date.parse(a.publishedAt ?? "") || 0),

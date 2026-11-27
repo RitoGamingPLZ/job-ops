@@ -16,11 +16,11 @@ const CURRENCY_PATTERNS = [
 
 const SINGLE_AMOUNT_SOURCE =
   "(?:CA\\$|US\\$|A\\$|S\\$|HK\\$|NZ\\$|CHF\\s*|[$£€₹])\\s?\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?\\s?[KkMm]?";
-const RANGE_REGEX = new RegExp(
-  `(${SINGLE_AMOUNT_SOURCE})\\s*(?:-|–|—|to)\\s*(${SINGLE_AMOUNT_SOURCE})`,
-  "gi",
-);
+const RANGE_PATTERN_SOURCE = `(${SINGLE_AMOUNT_SOURCE})\\s*(?:-|–|—|to)\\s*(${SINGLE_AMOUNT_SOURCE})`;
+const RANGE_REGEX = new RegExp(RANGE_PATTERN_SOURCE, "gi");
 const SINGLE_REGEX = new RegExp(`(${SINGLE_AMOUNT_SOURCE})`, "g");
+const RANGE_MATCH_REGEX = new RegExp(RANGE_PATTERN_SOURCE, "i");
+const SINGLE_MATCH_REGEX = new RegExp(SINGLE_AMOUNT_SOURCE);
 
 function detectCurrency(text) {
   const trimmed = text.trim();
@@ -52,9 +52,7 @@ function parseSalaryText(rawText) {
   const text = rawText.replace(/\s+/g, " ").trim();
   if (!text) return null;
 
-  const rangeMatch = text.match(
-    new RegExp(`(${SINGLE_AMOUNT_SOURCE})\\s*(?:-|–|—|to)\\s*(${SINGLE_AMOUNT_SOURCE})`, "i"),
-  );
+  const rangeMatch = text.match(RANGE_MATCH_REGEX);
   if (rangeMatch) {
     const min = parseMonetaryAmount(rangeMatch[1]);
     const max = parseMonetaryAmount(rangeMatch[2]);
@@ -68,7 +66,7 @@ function parseSalaryText(rawText) {
     }
   }
 
-  const singleMatch = text.match(new RegExp(SINGLE_AMOUNT_SOURCE));
+  const singleMatch = text.match(SINGLE_MATCH_REGEX);
   if (singleMatch) {
     const amount = parseMonetaryAmount(singleMatch[0]);
     if (amount !== null) {

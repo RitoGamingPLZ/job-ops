@@ -1,14 +1,6 @@
+import { createJsonResponse } from "@client/test/json-response";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "./client";
-
-function createJsonResponse(status: number, payload: unknown): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    text: async () => JSON.stringify(payload),
-    json: async () => payload,
-  } as Response;
-}
 
 function createBlobResponse(status: number, blob: Blob): Response {
   return {

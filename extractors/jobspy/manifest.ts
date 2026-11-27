@@ -1,4 +1,6 @@
+import { toTermProgress } from "@shared/extractor-progress";
 import { JOBSPY_SUPPORTED_COUNTRY_KEYS } from "@shared/location-support.js";
+import { parseLegacyWorkplaceTypes } from "@shared/settings-registry";
 import type { ExtractorManifest, ExtractorRuntimeContext } from "@shared/types/extractors";
 import { runJobSpy } from "./src/run";
 
@@ -43,22 +45,9 @@ export const manifest: ExtractorManifest = {
       location: context.settings.searchCities ?? context.settings.jobspyLocation,
       resultsWanted,
       countryIndeed: context.settings.jobspyCountryIndeed,
-      workplaceTypes: context.settings.workplaceTypes
-        ? JSON.parse(context.settings.workplaceTypes)
-        : undefined,
+      workplaceTypes: parseLegacyWorkplaceTypes(context.settings.workplaceTypes),
       onProgress: (event) => {
         if (context.shouldCancel?.()) return;
-
-        if (event.type === "term_start") {
-          context.onProgress?.({
-            phase: "list",
-            termsProcessed: Math.max(event.termIndex - 1, 0),
-            termsTotal: event.termTotal,
-            currentUrl: event.searchTerm,
-            detail: `JobSpy: term ${event.termIndex}/${event.termTotal} (${event.searchTerm})`,
-          });
-          return;
-        }
 
         if (event.type === "source_error") {
           context.onProgress?.({
@@ -69,13 +58,12 @@ export const manifest: ExtractorManifest = {
           return;
         }
 
-        context.onProgress?.({
-          phase: "list",
-          termsProcessed: event.termIndex,
-          termsTotal: event.termTotal,
-          currentUrl: event.searchTerm,
-          detail: `JobSpy: completed ${event.termIndex}/${event.termTotal} (${event.searchTerm}) with ${event.jobsFoundTerm} jobs`,
-        });
+        context.onProgress?.(
+          toTermProgress(event, {
+            label: "JobSpy",
+            includeJobCounts: false,
+          }),
+        );
       },
     });
 
@@ -94,5 +82,3 @@ export const manifest: ExtractorManifest = {
     };
   },
 };
-
-export default manifest;

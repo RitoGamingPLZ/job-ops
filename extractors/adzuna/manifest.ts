@@ -1,49 +1,8 @@
+import { toPaginatedTermProgress } from "@shared/extractor-progress";
 import { ADZUNA_SUPPORTED_COUNTRY_KEYS, getAdzunaCountryCode } from "@shared/location-support.js";
 import { resolveSearchCities } from "@shared/search-cities.js";
-import type { ExtractorManifest, ExtractorProgressEvent } from "@shared/types/extractors";
+import type { ExtractorManifest } from "@shared/types/extractors";
 import { runAdzuna } from "./src/run";
-
-function toProgress(event: {
-  type: string;
-  termIndex: number;
-  termTotal: number;
-  searchTerm: string;
-  pageNo?: number;
-  totalCollected?: number;
-}): ExtractorProgressEvent {
-  if (event.type === "term_start") {
-    return {
-      phase: "list",
-      termsProcessed: Math.max(event.termIndex - 1, 0),
-      termsTotal: event.termTotal,
-      currentUrl: event.searchTerm,
-      detail: `Adzuna: term ${event.termIndex}/${event.termTotal} (${event.searchTerm})`,
-    };
-  }
-
-  if (event.type === "page_fetched") {
-    const pageNo = event.pageNo ?? 0;
-    const totalCollected = event.totalCollected ?? 0;
-    return {
-      phase: "list",
-      termsProcessed: Math.max(event.termIndex - 1, 0),
-      termsTotal: event.termTotal,
-      listPagesProcessed: pageNo,
-      jobPagesEnqueued: totalCollected,
-      jobPagesProcessed: totalCollected,
-      currentUrl: `page ${pageNo}`,
-      detail: `Adzuna: term ${event.termIndex}/${event.termTotal}, page ${pageNo} (${totalCollected} collected)`,
-    };
-  }
-
-  return {
-    phase: "list",
-    termsProcessed: event.termIndex,
-    termsTotal: event.termTotal,
-    currentUrl: event.searchTerm,
-    detail: `Adzuna: completed term ${event.termIndex}/${event.termTotal} (${event.searchTerm})`,
-  };
-}
 
 export const manifest: ExtractorManifest = {
   id: "adzuna",
@@ -91,7 +50,9 @@ export const manifest: ExtractorManifest = {
         onProgress: (event) => {
           if (context.shouldCancel?.()) return;
 
-          context.onProgress?.(toProgress(event));
+          context.onProgress?.(
+            toPaginatedTermProgress(event, { label: "Adzuna", pageIndexBase: 1 }),
+          );
         },
       });
     } catch (error) {
@@ -122,5 +83,3 @@ export const manifest: ExtractorManifest = {
     };
   },
 };
-
-export default manifest;

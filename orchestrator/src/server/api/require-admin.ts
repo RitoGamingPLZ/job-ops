@@ -7,11 +7,13 @@ import type { NextFunction, Request, Response } from "express";
 
 /** Route guard for features that act on the shared server rather than one workspace. */
 export function requireSystemAdminMiddleware(_req: Request, res: Response, next: NextFunction) {
-  if (isSystemAdmin()) {
-    next();
-    return;
-  }
+  if (requireSystemAdmin(res)) next();
+}
+
+export function requireSystemAdmin(res: Response): boolean {
+  if (isSystemAdmin()) return true;
   fail(res, forbidden("System admin access is required"));
+  return false;
 }
 
 /** Route guard for a feature an admin can switch on or off per user. */

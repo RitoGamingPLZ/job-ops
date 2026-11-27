@@ -2,6 +2,7 @@ import { emitProgress, parsePositiveInt } from "job-ops-shared/extractor-cli";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseLegacyWorkplaceTypes } from "job-ops-shared/settings-registry";
 import { parseSearchTerms } from "job-ops-shared/utils/search-terms";
 import { HiringCafeBrowserPages } from "./browser-pages.js";
 import { runHiringCafe } from "./run.js";
@@ -22,18 +23,6 @@ function parseStringArray(raw: string | undefined): string[] | undefined {
   }
 }
 
-function parseWorkplaceTypes(
-  raw: string | undefined,
-): Array<"remote" | "hybrid" | "onsite"> | undefined {
-  const parsed = parseStringArray(raw);
-  if (!parsed) return undefined;
-
-  return parsed.filter(
-    (value): value is "remote" | "hybrid" | "onsite" =>
-      value === "remote" || value === "hybrid" || value === "onsite",
-  );
-}
-
 async function run(): Promise<void> {
   const outputPath =
     process.env.HIRING_CAFE_OUTPUT_JSON || join(__dirname, "../storage/datasets/default/jobs.json");
@@ -49,7 +38,7 @@ async function run(): Promise<void> {
       country: process.env.HIRING_CAFE_COUNTRY,
       countryKey: process.env.HIRING_CAFE_COUNTRY,
       locations: parseStringArray(process.env.HIRING_CAFE_LOCATION_QUERY),
-      workplaceTypes: parseWorkplaceTypes(process.env.HIRING_CAFE_WORKPLACE_TYPES),
+      workplaceTypes: parseLegacyWorkplaceTypes(process.env.HIRING_CAFE_WORKPLACE_TYPES),
       locationRadiusMiles: parsePositiveInt(process.env.HIRING_CAFE_LOCATION_RADIUS_MILES, 50),
       maxJobsPerTerm: parsePositiveInt(
         process.env.HIRING_CAFE_MAX_JOBS_PER_TERM,

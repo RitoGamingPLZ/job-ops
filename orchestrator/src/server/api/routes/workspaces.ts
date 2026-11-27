@@ -1,6 +1,7 @@
+import { requireSystemAdmin } from "../require-admin";
 import { badRequest, conflict, forbidden, notFound, unauthorized } from "@infra/errors";
 import { asyncRoute, fail, ok } from "@infra/http";
-import { getUserId, isSystemAdmin } from "@infra/request-context";
+import { getUserId } from "@infra/request-context";
 import { verifyPassword } from "@server/auth/password";
 import { getJobOpsAppConfig } from "@server/config/app-mode";
 import * as authSessionsRepo from "@server/repositories/auth-sessions";
@@ -49,12 +50,6 @@ const changeOwnPasswordSchema = z.object({
   password: z.string().min(8).max(500),
   currentPassword: z.string().min(1).max(500).optional(),
 });
-
-function requireSystemAdmin(res: Response): boolean {
-  if (isSystemAdmin()) return true;
-  fail(res, forbidden("System admin access is required"));
-  return false;
-}
 
 workspacesRouter.get(
   "/users",

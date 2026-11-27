@@ -1,6 +1,7 @@
 import type { JobListItem, JobStatus } from "@shared/types.js";
 import { isTargeted } from "@shared/types.js";
 import type { FilterTab } from "./constants";
+import { dateValue, isUntargetedDiscovered } from "./utils";
 
 type CommandGroupId = "ready" | "discovered" | "applied" | "other";
 export type StatusLock = "ready" | "discovered" | "applied" | "in_progress" | "skipped" | "expired";
@@ -53,12 +54,6 @@ export const lockLabel: Record<StatusLock, string> = {
 
 const tokenRegex = /^\s*@([a-z-]*)/i;
 const MINIMUM_MATCH_SCORE = 600;
-
-const parseTime = (value: string | null) => {
-  if (!value) return Number.NaN;
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : Number.NaN;
-};
 
 const computeFieldMatchScore = (fieldRaw: string, needleRaw: string) => {
   const field = fieldRaw.trim().toLowerCase();
@@ -131,7 +126,7 @@ export const resolveLockFromAliasPrefix = (rawToken: string): StatusLock | null 
 
 export const jobMatchesLock = (job: JobListItem, lock: StatusLock) => {
   if (lock === "ready") return isTargeted(job);
-  if (lock === "discovered") return job.status === "discovered" && !isTargeted(job);
+  if (lock === "discovered") return isUntargetedDiscovered(job);
   if (lock === "applied") return job.status === "applied";
   if (lock === "in_progress") return job.status === "in_progress";
   if (lock === "skipped") return job.status === "skipped";
@@ -175,13 +170,13 @@ export const groupJobsForCommandBar = (
   const sorted = scoredJobs.sort((a, b) => {
     if (normalizedQuery && a.score !== b.score) return b.score - a.score;
 
-    const first = parseTime(a.job.discoveredAt);
-    const second = parseTime(b.job.discoveredAt);
-    if (!Number.isNaN(first) && !Number.isNaN(second)) {
+    const first = dateValue(a.job.discoveredAt);
+    const second = dateValue(b.job.discoveredAt);
+    if (first !== null && second !== null) {
       return second - first;
     }
-    if (!Number.isNaN(first)) return -1;
-    if (!Number.isNaN(second)) return 1;
+    if (first !== null) return -1;
+    if (second !== null) return 1;
     return b.job.id.localeCompare(a.job.id);
   });
 

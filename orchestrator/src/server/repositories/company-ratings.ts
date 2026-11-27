@@ -54,6 +54,7 @@ async function ensureCompanyRatingsSeeded(): Promise<void> {
 }
 
 /** Test hook: forget that seeding already ran for the current database. */
+/** @lintignore Repository tests call this through their isolated SQLite fixture. */
 export function resetCompanyRatingsSeedState(): void {
   seeded = false;
 }

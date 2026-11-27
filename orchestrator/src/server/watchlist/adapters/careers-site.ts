@@ -1,3 +1,10 @@
+import {
+  getFreshMapEntry,
+  parseCatalogSourcesLenient,
+  pruneExpiredTimestamps,
+  setBoundedMapEntry,
+} from "./common";
+import { createBudgetSignal, createSoftDeadline } from "./http";
 import { parseWatchlistUrl, hasPlainHttpsAuthority } from "./url";
 import { isWorkerdRuntime } from "../runtime";
 import { createHash } from "node:crypto";
@@ -166,7 +173,7 @@ function startLearning(host: string, url: string): never {
   if (!learning.has(host)) {
     const p = (async () => {
       try {
-        const recipe = await learn(host, plainUrl.href, AbortSignal.timeout(180_000));
+        const recipe = await learn(host, plainUrl.href, createBudgetSignal(undefined, 180_000));
         await saveSiteRecipe(host, recipe);
         failedLearns.delete(host);
       } catch (error) {
@@ -174,9 +181,7 @@ function startLearning(host: string, url: string): never {
         // A browser that is still starting says nothing about this site; do not start a cooldown.
         else if (!(error instanceof RemoteCareersSiteUnavailableError)) {
           const now = Date.now();
-          for (const [failedHost, failedAt] of failedLearns) {
-            if (now - failedAt >= FAILED_LEARN_COOLDOWN_MS) failedLearns.delete(failedHost);
-          }
+          pruneExpiredTimestamps(failedLearns, FAILED_LEARN_COOLDOWN_MS, now);
           failedLearns.set(host, now);
         }
         throw error;
@@ -211,9 +216,8 @@ function cachedJob(input: {
   const url = careersUrl(input.source.careersUrl);
   const host = url.hostname;
   const sourceKey = key(host, url.search);
-  const entry = cache.get(sourceKey);
-  if (entry && entry.expires <= Date.now()) cache.delete(sourceKey);
-  const job = entry && entry.expires > Date.now() ? entry.jobs.get(input.jobRef) : undefined;
+  const entry = getFreshMapEntry(cache, sourceKey);
+  const job = entry?.jobs.get(input.jobRef);
   if (!job) throw badRequest("Refresh this careers site before importing or opening this posting.");
   return { host, sourceKey, job };
 }
@@ -237,23 +241,15 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsBranding: false,
   },
   parseCatalogSources(entries) {
-    return entries.flatMap((entry) => {
-      try {
-        const parsed = sourceSchema.safeParse(entry);
-        if (!parsed.success) return [];
-        const url = careersUrl(parsed.data.careersUrl);
-        return [
-          {
-            id: key(url.hostname, url.search),
-            label: parsed.data.label,
-            sourceType: "careers_site",
-            careersUrl: url.href,
-            cxsJobsUrl: null,
-          },
-        ];
-      } catch {
-        return [];
-      }
+    return parseCatalogSourcesLenient(entries, sourceSchema, (parsed) => {
+      const url = careersUrl(parsed.careersUrl);
+      return {
+        id: key(url.hostname, url.search),
+        label: parsed.label,
+        sourceType: "careers_site",
+        careersUrl: url.href,
+        cxsJobsUrl: null,
+      };
     });
   },
   hydrateSelectedSource(source) {
@@ -283,9 +279,11 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       }
     }
     const sourceKey = key(host, url.search);
-    const stopAt = Date.now() + 20_000;
-    const timeout = AbortSignal.timeout(25_000);
-    const signal = input.signal ? AbortSignal.any([input.signal, timeout]) : timeout;
+    const { signal, stopAt } = createSoftDeadline(input.signal, {
+      hardMs: 25_000,
+      softMs: 20_000,
+      abortAtSoft: false,
+    });
     signal.throwIfAborted();
     const stored = await getSiteRecipe(host);
     signal.throwIfAborted();
@@ -336,14 +334,15 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       if (failures >= 3) startLearning(host, url.href);
     }
     const jobs = collected.slice(0, limit);
-    cache.set(sourceKey, {
-      expires: Date.now() + 15 * 60_000,
-      jobs: new Map(jobs.map((job) => [job.url, job])),
-    });
-    while (cache.size > 100) {
-      const oldest = cache.keys().next().value;
-      if (oldest) cache.delete(oldest);
-    }
+    setBoundedMapEntry(
+      cache,
+      sourceKey,
+      {
+        expires: Date.now() + 15 * 60_000,
+        jobs: new Map(jobs.map((job) => [job.url, job])),
+      },
+      100,
+    );
     return {
       total: jobs.length,
       fetched: jobs.length,

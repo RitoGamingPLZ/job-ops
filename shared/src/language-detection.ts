@@ -1,4 +1,4 @@
-import { asArray, asRecord } from "./utils/type-conversion";
+import { asArray, asRecord, toText } from "./utils/type-conversion";
 import {
   CHAT_STYLE_MANUAL_LANGUAGE_LABELS,
   type ChatStyleManualLanguage,
@@ -94,10 +94,6 @@ function collectProfileLanguageSample(profile: ResumeProfile): string {
   }
 
   return segments.join("\n");
-}
-
-function toText(value: unknown): string {
-  return typeof value === "string" ? value : "";
 }
 
 function collectResumeV5LanguageSample(resumeJson: Record<string, unknown>): string {

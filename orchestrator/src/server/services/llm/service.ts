@@ -5,7 +5,7 @@ import { logger } from "@infra/logger";
 import { sleep } from "@server/utils/sleep";
 import { getOriginalEnvValue } from "@server/services/envSettings";
 import { resolveLlmApiKey } from "@server/services/llm/credentials";
-import { mapGlmProviderAlias } from "@shared/settings-registry";
+import { normalizeLlmProviderName } from "@shared/settings-registry";
 import { toStringOrNull } from "@shared/utils/type-conversion";
 import { ClaudeCliClient } from "./claude-cli/client";
 import { CodexClient } from "./codex/client";
@@ -633,45 +633,22 @@ async function fetchModelsJson<T>(
 }
 
 function normalizeProvider(raw: string | null, baseUrl: string | null): LlmProvider {
-  const normalized = normalizeProviderName(raw);
+  const normalized = normalizeLlmProviderName(raw);
   if (normalized === "openai_compatible") {
     if (baseUrl?.includes("localhost:1234") || baseUrl?.includes("127.0.0.1:1234")) {
       return "lmstudio";
     }
     return "openai_compatible";
   }
-  if (normalized === "openai") return "openai";
-  if (normalized === "atlascloud" || normalized === "atlas_cloud") {
-    return "atlascloud";
+  if (normalized && normalized in strategies) {
+    return normalized as LlmProvider;
   }
-  if (normalized === "litellm" || normalized === "litellm_proxy") {
-    return "litellm";
-  }
-  if (normalized === "anthropic" || normalized === "claude") {
-    return "anthropic";
-  }
-  if (normalized === "glm") return "glm";
-  if (normalized === "gemini") return "gemini";
-  if (normalized === "gemini_cli") return "gemini_cli";
-  if (normalized === "claude_cli") return "claude_cli";
-  if (normalized === "lmstudio") return "lmstudio";
-  if (normalized === "ollama") return "ollama";
-  if (normalized === "codex") return "codex";
-  if (normalized === "requesty") return "requesty";
-  if (normalized === "api_route") return "api_route";
-  if (normalized === "orcarouter") return "orcarouter";
   if (normalized && normalized !== "openrouter") {
     logger.warn("Unknown LLM provider, defaulting to openrouter", {
       normalized,
     });
   }
   return "openrouter";
-}
-
-function normalizeProviderName(raw: string | null): string | undefined {
-  const normalized = raw?.trim().toLowerCase().replace(/[-.]/g, "_");
-  if (!normalized) return normalized;
-  return mapGlmProviderAlias(normalized);
 }
 
 function providerUsesConfiguredBaseUrl(provider: LlmProvider): boolean {

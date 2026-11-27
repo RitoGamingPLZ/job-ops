@@ -14,7 +14,7 @@ import { previewJobPdfBytes } from "@server/services/pdf";
 import { removeStoredJobPdf } from "@server/services/pdf-storage";
 import { getSafeInlineJobDocumentMediaType } from "@shared/job-document-classification.js";
 import { type Request, type Response, Router } from "express";
-import { requireAnyPermissionMiddleware, requirePermissionMiddleware } from "../../require-admin";
+import { requireJobsOrInProgress, requireResumes } from "../../require-admin";
 import {
   appErrorFromPipelineFailure,
   hydrateJobPdfFreshness,
@@ -25,9 +25,6 @@ import {
 } from "./shared";
 
 export const jobsDocumentsRouter = Router();
-
-const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");
-const requireResumes = requirePermissionMiddleware("resumes");
 
 function encodeContentDispositionFileName(value: string): string {
   return encodeURIComponent(value).replace(

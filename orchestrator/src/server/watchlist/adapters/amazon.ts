@@ -1,4 +1,7 @@
-import { setTimeout as delay } from "node:timers/promises";
+import { resolveCustomLabel } from "./common";
+import { createBudgetSignal, createSoftDeadline, fetchWatchlist } from "./http";
+import { tryParseSafeHttpsUrl } from "./url";
+import { upstreamError } from "@infra/errors";
 import { convert } from "html-to-text";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
@@ -29,14 +32,11 @@ const responseSchema = z.object({
   jobs: z.array(z.unknown()),
 });
 
-function normalizeSearch(value: string): URL {
-  const url = new URL(value);
+export function parseAmazonUrl(value: string): URL {
+  const url = tryParseSafeHttpsUrl(value);
   if (
-    url.protocol !== "https:" ||
+    !url ||
     !["amazon.jobs", "www.amazon.jobs"].includes(url.hostname) ||
-    url.port ||
-    url.username ||
-    url.password ||
     !/^\/en\/search\/?$/.test(url.pathname)
   ) {
     throw new Error("Expected an https://www.amazon.jobs/en/search URL.");
@@ -50,26 +50,19 @@ function normalizeSearch(value: string): URL {
   url.searchParams.sort();
   return url;
 }
+const normalizeSearch = parseAmazonUrl;
 
-async function search(url: URL, signal?: AbortSignal) {
-  const deadline = AbortSignal.timeout(25_000);
-  const combined = signal ? AbortSignal.any([signal, deadline]) : deadline;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    combined.throwIfAborted();
-    const response = await fetch(url, { signal: combined, redirect: "manual" });
-    if (response.status === 429 && attempt < 2) {
-      await response.body?.cancel();
-      await delay(250 * 2 ** attempt, undefined, { signal: combined });
-      continue;
-    }
-    if (!response.ok) {
-      throw new Error(`Amazon search failed (HTTP ${response.status}).`);
-    }
-    const result = responseSchema.parse(await response.json());
-    if (result.error) throw new Error("Amazon search returned an error.");
-    return result;
-  }
-  throw new Error("Amazon search retry limit reached.");
+async function search(url: URL, signal: AbortSignal) {
+  const payload = await fetchWatchlist({
+    url,
+    signal,
+    maxRetries: 2,
+    retryDelayMs: ({ attempt }) => 250 * 2 ** attempt,
+    formatHttpError: ({ status }) => upstreamError(`Amazon search failed (HTTP ${status}).`),
+  });
+  const result = responseSchema.parse(payload);
+  if (result.error) throw new Error("Amazon search returned an error.");
+  return result;
 }
 
 function searchEndpoint(careersUrl: string): URL {
@@ -106,7 +99,7 @@ async function getJob(jobRef: string, signal?: AbortSignal) {
   if (!/^\d+$/.test(jobRef)) throw new Error("Invalid Amazon job reference.");
   const url = searchEndpoint(`${ORIGIN}/en/search`);
   url.searchParams.set("base_query", jobRef);
-  const result = await search(url, signal);
+  const result = await search(url, createBudgetSignal(signal));
   const job = validJobs(result.jobs).find((entry) => entry.id_icims === jobRef);
   if (!job) throw new Error("Amazon job was not found.");
   return job;
@@ -167,25 +160,20 @@ export const amazonWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   },
   normalizeCustomSelection(input) {
     return {
-      label:
-        input.label?.trim() && input.label.trim() !== input.careersUrl.trim()
-          ? input.label.trim()
-          : "Amazon",
+      label: resolveCustomLabel(input.label, input.careersUrl, "Amazon"),
       careersUrl: normalizeSearch(input.careersUrl).href,
     };
   },
   async fetchJobs(input) {
-    const stopAt = Date.now() + 20_000;
-    const signal = input.signal
-      ? AbortSignal.any([input.signal, AbortSignal.timeout(20_000)])
-      : AbortSignal.timeout(20_000);
+    const deadline = createSoftDeadline(input.signal, { hardMs: 25_000, softMs: 20_000 });
+    const signal = deadline.signal;
     const url = searchEndpoint(input.source.careersUrl);
     const collected = new Map<string, AmazonJob>();
     let total = 0;
     let offset = 0;
     // Some searches return fewer rows than result_limit. Follow their offsets,
     // with a request bound and a shared deadline across all pages and retries.
-    for (let page = 0; page < MAX_JOBS && Date.now() < stopAt; page++) {
+    for (let page = 0; page < MAX_JOBS && deadline.hasTimeLeft(); page++) {
       url.searchParams.set("offset", String(offset));
       let result: Awaited<ReturnType<typeof search>>;
       try {

@@ -1,6 +1,7 @@
-import { watchlistRequestSignal } from "./http";
+import { parseCatalogSourcesLenient, resolveCustomLabel } from "./common";
+import { createBudgetSignal, fetchWatchlist } from "./http";
+import { hasPlainHttpsAuthority, parseWatchlistUrl } from "./url";
 import { createHash } from "node:crypto";
-import { setTimeout as delay } from "node:timers/promises";
 import { badRequest, upstreamError } from "@infra/errors";
 import catalog from "@server/config/career-boards-oracle.json";
 import { convert } from "html-to-text";
@@ -41,21 +42,13 @@ const jobSchema = z.object({
 });
 type Job = z.infer<typeof jobSchema>;
 
-function board(value: string) {
-  let url: URL;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    throw badRequest("Invalid Oracle careers URL.");
-  }
-  const authority = value.trim().match(/^https:\/\/([^/?#]+)/i)?.[1];
+export function parseOracleUrl(value: string) {
+  const url = parseWatchlistUrl(value, "Invalid Oracle careers URL.");
   const path = url.pathname.match(
     /^\/hcmUI\/CandidateExperience\/([a-zA-Z-]+)\/sites\/([a-zA-Z0-9_-]+)\/jobs\/?$/,
   );
   if (
-    !authority ||
-    authority.includes(":") ||
-    authority.includes("@") ||
+    !hasPlainHttpsAuthority(value) ||
     url.protocol !== "https:" ||
     !/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+oraclecloud\.com$/.test(url.hostname) ||
     url.username ||
@@ -91,39 +84,25 @@ function board(value: string) {
     basePath: canonical.pathname.replace(/\/jobs$/, ""),
   };
 }
+const board = parseOracleUrl;
 type Board = ReturnType<typeof board>;
 async function request(url: URL, signal: AbortSignal, json = true): Promise<unknown> {
-  for (let attempt = 0; ; attempt++) {
-    signal.throwIfAborted();
-    const response = await fetch(url.toString(), {
-      signal,
-      redirect: "manual",
-      headers: {
-        accept: json ? "application/json" : "text/html",
-        "user-agent": "job-ops-watchlist/0.1",
-      },
-    });
-    if (response.status === 429 && attempt < 3) {
+  return fetchWatchlist({
+    url: url.toString(),
+    signal,
+    headers: {
+      accept: json ? "application/json" : "text/html",
+      "user-agent": "job-ops-watchlist/0.1",
+    },
+    maxRetries: 3,
+    retryDelayMs: ({ response, attempt }) => {
       const retry = Number(response.headers.get("retry-after"));
-      await response.body?.cancel();
-      await delay(
-        retry > 0 ? Math.min(8000, retry * 1000) : [1000, 3000, 8000][attempt],
-        undefined,
-        { signal },
-      );
-      continue;
-    }
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw upstreamError(`Oracle returned HTTP ${response.status}.`);
-    }
-    try {
-      return json ? await response.json() : await response.text();
-    } catch {
-      signal.throwIfAborted();
-      throw upstreamError("Oracle returned an invalid response.");
-    }
-  }
+      return retry > 0 ? Math.min(8000, retry * 1000) : [1000, 3000, 8000][attempt];
+    },
+    responseType: json ? "json" : "text",
+    formatHttpError: ({ status }) => upstreamError(`Oracle returned HTTP ${status}.`),
+    formatInvalidBodyError: () => upstreamError("Oracle returned an invalid response."),
+  });
 }
 async function siteNumber(b: Board, signal: AbortSignal) {
   const known = catalog.find((entry) => {
@@ -163,7 +142,7 @@ function location(job: Job) {
 async function details(careersUrl: string, jobRef: string, signal?: AbortSignal) {
   if (!/^\d+$/.test(jobRef)) throw badRequest("Invalid Oracle job reference.");
   const b = board(careersUrl);
-  const activeSignal = watchlistRequestSignal(signal);
+  const activeSignal = createBudgetSignal(signal);
   const site = await siteNumber(b, activeSignal);
   const payload = await request(
     api(b, "recruitingCEJobRequisitionDetails", `ById;Id="${jobRef}",siteNumber=${site}`, "all"),
@@ -203,23 +182,15 @@ export const oracleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsBranding: false,
   },
   parseCatalogSources(entries) {
-    return entries.flatMap((entry) => {
-      const parsed = catalogSchema.safeParse(entry);
-      if (!parsed.success) return [];
-      try {
-        const b = board(parsed.data.careersUrl);
-        return [
-          {
-            id: b.id,
-            label: parsed.data.label,
-            careersUrl: b.url.toString(),
-            sourceType: "oracle",
-            cxsJobsUrl: null,
-          },
-        ];
-      } catch {
-        return [];
-      }
+    return parseCatalogSourcesLenient(entries, catalogSchema, (parsed) => {
+      const b = board(parsed.careersUrl);
+      return {
+        id: b.id,
+        label: parsed.label,
+        careersUrl: b.url.toString(),
+        sourceType: "oracle",
+        cxsJobsUrl: null,
+      };
     });
   },
   hydrateSelectedSource(source) {
@@ -234,16 +205,13 @@ export const oracleWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   normalizeCustomSelection(input) {
     const b = board(input.careersUrl);
     return {
-      label:
-        input.label?.trim() && input.label.trim() !== input.careersUrl.trim()
-          ? input.label.trim()
-          : b.site,
+      label: resolveCustomLabel(input.label, input.careersUrl, b.site),
       careersUrl: b.url.toString(),
     };
   },
   async fetchJobs({ source, signal }) {
     const b = board(source.careersUrl);
-    const activeSignal = watchlistRequestSignal(signal);
+    const activeSignal = createBudgetSignal(signal);
     const site = await siteNumber(b, activeSignal);
     const jobs = new Map<string, Job>();
     let total = 0;

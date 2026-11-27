@@ -10,6 +10,7 @@ import {
   WATCHLIST_SOURCE_TIMEOUT_MS,
   withWatchlistSourceTimeout,
 } from "./results";
+import { makeSelectedSource } from "./testing/fixtures";
 
 vi.mock("@server/repositories/watchlist", () => ({
   listWatchlistSelectedSources: vi.fn(),
@@ -28,31 +29,26 @@ vi.mock("@server/watchlist/adapters", () => ({
   listWatchlistSourceAdapters: vi.fn(() => []),
 }));
 
-const workdaySource: WatchlistSelectedSource = {
+const workdaySource = makeSelectedSource({
   id: "workday-source",
   catalogSourceId: "acme",
   label: "Acme",
   careersUrl: "https://acme.wd1.myworkdayjobs.com/acme",
-  cxsJobsUrl: null,
   sourceType: "workday",
-  isCustom: false,
-  sortOrder: 0,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
-};
+});
 
-const bamboohrSource: WatchlistSelectedSource = {
+const bamboohrSource = makeSelectedSource({
   id: "bamboohr-source",
-  catalogSourceId: null,
   label: "Beta",
   careersUrl: "https://beta.bamboohr.com/careers",
-  cxsJobsUrl: null,
   sourceType: "bamboohr",
   isCustom: true,
   sortOrder: 1,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
-};
+});
 
 describe("watchlist results service", () => {
   afterEach(() => vi.useRealTimers());

@@ -1,5 +1,5 @@
 import { Progress } from "@/components/ui/progress";
-import { clampNumber } from "./utils";
+import { clampJobActionProgress } from "./utils";
 
 interface JobActionProgressToastProps {
   completed: number;
@@ -14,9 +14,8 @@ export function JobActionProgressToast({
   succeeded,
   failed,
 }: JobActionProgressToastProps) {
-  const safeRequested = Math.max(requested, 1);
-  const safeCompleted = clampNumber(completed, 0, safeRequested);
-  const progressValue = Math.round((safeCompleted / safeRequested) * 100);
+  const progress = clampJobActionProgress(completed, requested);
+  const progressValue = Math.round((progress.completed / progress.requested) * 100);
 
   return (
     <div className="mt-2 w-full space-y-1.5">

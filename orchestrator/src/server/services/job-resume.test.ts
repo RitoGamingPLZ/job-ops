@@ -53,7 +53,6 @@ beforeEach(() => {
   );
   vi.mocked(loadBaseResumeSource).mockResolvedValue({
     data: document,
-    mode: "v5",
   });
   vi.mocked(saveJobResume).mockResolvedValue(row);
   vi.mocked(generateResumeFromLibrary).mockResolvedValue(document);
@@ -223,7 +222,7 @@ describe("ensureJobResume", () => {
     vi.mocked(loadBaseResumeSource).mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          finishBase = () => resolve({ data: document, mode: "v5" });
+          finishBase = () => resolve({ data: document });
         }),
     );
     const editorOpen = ensureJobResume("job");
@@ -246,7 +245,7 @@ describe("ensureJobResume", () => {
       vi.mocked(loadBaseResumeSource).mockImplementationOnce(
         () =>
           new Promise((resolve) => {
-            finishBase = () => resolve({ data: document, mode: "v5" });
+            finishBase = () => resolve({ data: document });
           }),
       );
       vi.mocked(syncCandidateLibrary).mockImplementation((_base, revisions) => {
@@ -310,7 +309,7 @@ describe("ensureJobResume", () => {
     vi.mocked(loadBaseResumeSource).mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          finishBase = () => resolve({ data: document, mode: "v5" });
+          finishBase = () => resolve({ data: document });
         }),
     );
     const editorOpen = ensureJobResume("job");
@@ -330,7 +329,7 @@ describe("regenerateJobResume", () => {
     vi.mocked(getJobResume).mockResolvedValue(row);
     vi.mocked(loadBaseResumeSource).mockImplementationOnce(async () => {
       expect(getJobResume).toHaveBeenCalledOnce();
-      return { data: document, mode: "v5" };
+      return { data: document };
     });
     await regenerateJobResume("job");
     expect(syncCandidateLibrary).toHaveBeenCalledWith(document, expect.any(Map));
@@ -393,7 +392,7 @@ describe("regenerateJobResume", () => {
     vi.mocked(getJobResume).mockImplementation(async () => current);
     vi.mocked(loadBaseResumeSource).mockImplementationOnce(async () => {
       current = { ...current, revision: 8 };
-      return { data: document, mode: "v5" };
+      return { data: document };
     });
     vi.mocked(saveJobResume).mockImplementationOnce(async (_id, expected) => {
       if (expected !== current.revision) throw conflict("Resume changed");
@@ -517,7 +516,7 @@ describe("regenerateJobResume", () => {
       vi.mocked(loadBaseResumeSource).mockImplementationOnce(
         () =>
           new Promise((resolve) => {
-            finishBase = () => resolve({ data: document, mode: "v5" });
+            finishBase = () => resolve({ data: document });
           }),
       );
       vi.mocked(syncCandidateLibrary).mockImplementation((_base, revisions) => {

@@ -360,4 +360,19 @@ test("jsonError honors request IDs and preserves response headers", async () => 
     error: { code: "SERVICE_UNAVAILABLE", message: "Maintenance" },
     meta: { requestId: "worker-request" },
   });
+
+  const detailedResponse = jsonError(request, "UNPROCESSABLE_ENTITY", "Checksum mismatch", {
+    status: 422,
+    details: { expected: { jobs: "abc" } },
+  });
+  assert.equal(detailedResponse.status, 422);
+  assert.deepEqual(await detailedResponse.json(), {
+    ok: false,
+    error: {
+      code: "UNPROCESSABLE_ENTITY",
+      message: "Checksum mismatch",
+      details: { expected: { jobs: "abc" } },
+    },
+    meta: { requestId: "worker-request" },
+  });
 });

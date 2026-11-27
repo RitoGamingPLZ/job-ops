@@ -1,3 +1,4 @@
+import { createJsonResponse } from "@client/test/json-response";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { queryClient } from "@/client/lib/queryClient";
 import * as api from "./client";
@@ -9,15 +10,6 @@ const { redirectToSignIn } = vi.hoisted(() => ({
 vi.mock("@client/lib/auth-navigation", () => ({
   redirectToSignIn,
 }));
-
-function createJsonResponse(status: number, payload: unknown): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    text: async () => JSON.stringify(payload),
-    json: async () => payload,
-  } as Response;
-}
 
 function jwtLoginSuccess(token = "mock-jwt-token") {
   return createJsonResponse(200, {

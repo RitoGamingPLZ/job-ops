@@ -15,7 +15,7 @@ import {
   type TailoredSkillsInput,
 } from "./tailoring";
 
-export type PreparedResumePdfPayload = {
+type PreparedResumePdfPayload = {
   data: Record<string, unknown>;
 };
 

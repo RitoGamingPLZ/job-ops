@@ -1,5 +1,6 @@
-import { watchlistRequestSignal } from "./http";
-import { setTimeout as delay } from "node:timers/promises";
+import { parseCatalogSourcesLenient, resolveCustomLabel } from "./common";
+import { createBudgetSignal, fetchWatchlist } from "./http";
+import { hasPlainHttpsAuthority, parseWatchlistUrl } from "./url";
 import { badRequest, upstreamError } from "@infra/errors";
 import { escapeHtml } from "@infra/html";
 import { convert } from "html-to-text";
@@ -36,23 +37,12 @@ type Job = z.infer<typeof jobSchema>;
 // state are cached. Board + posting ID prevent collisions across companies/regions.
 // Each board is replaced on its list fetch and bounded to 60 public postings per normalized selection.
 const listedJobs = new Map<string, Map<string, Job>>();
-// Public host-level crawl pacing, independent of tenants and company selections.
-// At most two keys: the pinned global and EU API hosts.
-const nextRequestAt = new Map<string, number>();
 
-function board(value: string) {
-  let url: URL;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    throw badRequest("Invalid Lever careers URL.");
-  }
-  const authority = value.trim().match(/^https:\/\/([^/?#]+)/i)?.[1];
+export function parseLeverUrl(value: string) {
+  const url = parseWatchlistUrl(value, "Invalid Lever careers URL.");
   const match = url.pathname.match(/^\/([a-zA-Z0-9_-]+)(?:\/([a-zA-Z0-9-]+)(?:\/apply)?)?\/?$/);
   if (
-    !authority ||
-    authority.includes(":") ||
-    authority.includes("@") ||
+    !hasPlainHttpsAuthority(value) ||
     url.protocol !== "https:" ||
     !["jobs.lever.co", "jobs.eu.lever.co"].includes(url.hostname) ||
     url.username ||
@@ -86,44 +76,19 @@ function board(value: string) {
     postingId: match[2],
   };
 }
+const board = parseLeverUrl;
 type Board = ReturnType<typeof board>;
 async function request(url: string, signal: AbortSignal): Promise<unknown> {
-  for (let attempt = 0; attempt <= 3; attempt++) {
-    signal.throwIfAborted();
-    const host = new URL(url).hostname;
-    const now = Date.now();
-    const start = Math.max(now, nextRequestAt.get(host) ?? 0);
-    nextRequestAt.set(host, start + 1000);
-    if (start > now) await delay(start - now, undefined, { signal });
-    signal.throwIfAborted();
-    const response = await fetch(url, { signal, redirect: "manual" });
-    if (response.status === 429 && attempt < 3) {
-      const header = response.headers.get("retry-after");
-      const seconds = header === null ? NaN : Number(header);
-      const retryMs = Number.isFinite(seconds)
-        ? seconds * 1000
-        : header
-          ? Date.parse(header) - Date.now()
-          : NaN;
-      await response.body?.cancel();
-      await delay(
-        Number.isFinite(retryMs)
-          ? Math.min(25_000, Math.max(0, retryMs))
-          : [1000, 3000, 8000][attempt],
-        undefined,
-        { signal },
-      );
-      continue;
-    }
-    if (!response.ok) throw upstreamError(`Lever returned HTTP ${response.status}.`);
-    try {
-      return await response.json();
-    } catch {
-      signal.throwIfAborted();
-      throw upstreamError("Lever returned invalid JSON.");
-    }
-  }
-  throw upstreamError("Lever retry limit exceeded.");
+  return fetchWatchlist({
+    url,
+    signal,
+    paceMs: 1_000,
+    maxRetries: 3,
+    retryAfterMaxMs: 25_000,
+    backoffScheduleMs: [1000, 3000, 8000],
+    formatHttpError: ({ status }) => upstreamError(`Lever returned HTTP ${status}.`),
+    formatInvalidBodyError: () => upstreamError("Lever returned invalid JSON."),
+  });
 }
 function postingUrl(b: Board, job: Job, apply = false): string {
   const fallback = `${b.baseUrl}/${job.id}${apply ? "/apply" : ""}`;
@@ -166,7 +131,7 @@ async function details(careersUrl: string, jobRef: string, signal?: AbortSignal)
   let job = listedJobs.get(b.careersUrl)?.get(ref.postingId);
   if (!job) {
     const parsed = jobSchema.safeParse(
-      await request(`${b.apiUrl}/${ref.postingId}?mode=json`, watchlistRequestSignal(signal)),
+      await request(`${b.apiUrl}/${ref.postingId}?mode=json`, createBudgetSignal(signal)),
     );
     if (!parsed.success || parsed.data.id !== ref.postingId)
       throw upstreamError("Lever returned invalid posting data.");
@@ -194,23 +159,15 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsBranding: false,
   },
   parseCatalogSources(entries) {
-    return entries.flatMap((entry) => {
-      const parsed = sourceSchema.safeParse(entry);
-      if (!parsed.success) return [];
-      try {
-        const b = board(parsed.data.careersUrl);
-        return [
-          {
-            id: `lever:${b.company}${b.query}`,
-            label: parsed.data.label,
-            careersUrl: b.careersUrl,
-            sourceType: "lever",
-            cxsJobsUrl: null,
-          },
-        ];
-      } catch {
-        return [];
-      }
+    return parseCatalogSourcesLenient(entries, sourceSchema, (parsed) => {
+      const b = board(parsed.careersUrl);
+      return {
+        id: `lever:${b.company}${b.query}`,
+        label: parsed.label,
+        careersUrl: b.careersUrl,
+        sourceType: "lever",
+        cxsJobsUrl: null,
+      };
     });
   },
   hydrateSelectedSource(source) {
@@ -229,15 +186,12 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       .safeParse(
         await request(
           `${b.apiUrl}?mode=json&${b.query.slice(1)}${b.query ? "&" : ""}limit=1`,
-          watchlistRequestSignal(),
+          createBudgetSignal(),
         ),
       );
     if (!parsed.success) throw upstreamError("Lever returned invalid board data.");
     return {
-      label:
-        input.label?.trim() && input.label.trim() !== input.careersUrl.trim()
-          ? input.label.trim()
-          : b.company,
+      label: resolveCustomLabel(input.label, input.careersUrl, b.company),
       careersUrl: b.careersUrl,
     };
   },
@@ -250,7 +204,7 @@ export const leverWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       .safeParse(
         await request(
           `${b.apiUrl}?mode=json${b.query ? `&${b.query.slice(1)}` : ""}`,
-          watchlistRequestSignal(input.signal),
+          createBudgetSignal(input.signal),
         ),
       );
     if (!parsed.success) throw upstreamError("Lever returned invalid board data.");

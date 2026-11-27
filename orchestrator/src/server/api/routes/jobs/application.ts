@@ -9,14 +9,14 @@ import { transitionStage } from "@server/services/applicationTracking";
 import { simulateApplyJob } from "@server/services/demo-simulator";
 import { notifyJobCompleteWebhook } from "@server/services/jobs/webhooks";
 import { type Request, type Response, Router } from "express";
-import { requireAnyPermissionMiddleware } from "../../require-admin";
+import { requireJobsOrInProgress } from "../../require-admin";
 import { hydrateJobPdfFreshness, requireJob, toJobsRouteError } from "./shared";
 
 export const jobsApplicationRouter = Router();
 
 jobsApplicationRouter.post(
   "/:id/apply",
-  requireAnyPermissionMiddleware("jobs", "inProgress"),
+  requireJobsOrInProgress,
   async (req: Request, res: Response) => {
     try {
       if (isDemoMode()) {

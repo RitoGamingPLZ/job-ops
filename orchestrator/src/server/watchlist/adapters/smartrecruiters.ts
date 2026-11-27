@@ -1,5 +1,11 @@
-import { watchlistRequestSignal } from "./http";
-import { setTimeout as delay } from "node:timers/promises";
+import {
+  getFreshMapEntry,
+  parseCatalogSourcesLenient,
+  resolveCustomLabel,
+  setBoundedMapEntry,
+} from "./common";
+import { createBudgetSignal, fetchWatchlist } from "./http";
+import { hasPlainHttpsAuthority, parseWatchlistUrl } from "./url";
 import { badRequest, upstreamError } from "@infra/errors";
 import { escapeHtml } from "@infra/html";
 import type { WatchlistSelectedSource } from "@shared/types";
@@ -54,22 +60,15 @@ type Detail = z.infer<typeof detailSchema>;
 // Company + posting ID prevents collisions across companies and tenants.
 const cache = new Map<string, { job: Detail; expires: number }>();
 
-function board(value: string) {
-  let url: URL;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    throw badRequest("Invalid SmartRecruiters URL.");
-  }
-  const authority = value.trim().match(/^https:\/\/([^/?#]+)/i)?.[1];
+export function parseSmartRecruitersUrl(value: string) {
+  const url = parseWatchlistUrl(value, "Invalid SmartRecruiters URL.");
   const match = url.pathname.match(
     /^\/([a-z0-9][a-z0-9_-]{0,199})(?:\/\d+(?:-[^/]+)?(?:\/apply)?)?\/?$/i,
   );
   if (
     url.origin !== ORIGIN ||
     /\/(?:\.|%2e){1,2}(?:\/|[?#]|$)/i.test(value) ||
-    !authority ||
-    /[:@]/.test(authority) ||
+    !hasPlainHttpsAuthority(value) ||
     !match
   )
     throw badRequest(
@@ -77,32 +76,17 @@ function board(value: string) {
     );
   return { company: match[1], careersUrl: `${ORIGIN}/${match[1]}` };
 }
+const board = parseSmartRecruitersUrl;
 async function request(url: string, signal: AbortSignal): Promise<unknown> {
-  for (let attempt = 0; attempt <= 3; attempt++) {
-    signal.throwIfAborted();
-    const response = await fetch(url, { signal, redirect: "manual" });
-    if (response.status === 429 && attempt < 3) {
-      const retry = response.headers.get("retry-after");
-      const seconds = retry === null ? NaN : Number(retry);
-      const date = retry === null ? NaN : Date.parse(retry);
-      const wait = Number.isFinite(seconds)
-        ? Math.max(0, seconds * 1000)
-        : Number.isFinite(date)
-          ? Math.max(0, date - Date.now())
-          : [1000, 3000, 8000][attempt];
-      await response.body?.cancel();
-      if (wait > 10_000) throw upstreamError("SmartRecruiters returned HTTP 429.");
-      await delay(wait, undefined, { signal });
-      continue;
-    }
-    if (!response.ok) throw upstreamError(`SmartRecruiters returned HTTP ${response.status}.`);
-    try {
-      return await response.json();
-    } catch {
-      throw upstreamError("SmartRecruiters returned invalid JSON.");
-    }
-  }
-  throw upstreamError("SmartRecruiters retry limit exceeded.");
+  return fetchWatchlist({
+    url,
+    signal,
+    maxRetries: 3,
+    failFastRetryAfterMs: 10_000,
+    backoffScheduleMs: [1000, 3000, 8000],
+    formatHttpError: ({ status }) => upstreamError(`SmartRecruiters returned HTTP ${status}.`),
+    formatInvalidBodyError: () => upstreamError("SmartRecruiters returned invalid JSON."),
+  });
 }
 function parse<T>(schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
@@ -148,11 +132,11 @@ async function details(input: {
   const id = new URL(input.jobRef).pathname.split("/")[2]?.match(/^(\d+)(?:-|$)/)?.[1];
   if (ref.company.toLowerCase() !== company.toLowerCase() || !id)
     throw badRequest("The SmartRecruiters posting must belong to the selected company.");
-  const signal = watchlistRequestSignal(input.signal);
+  const signal = createBudgetSignal(input.signal);
   signal.throwIfAborted();
   const cacheKey = `${company.toLowerCase()}:${id}`;
-  const cached = cache.get(cacheKey);
-  let job = cached && cached.expires > Date.now() ? cached.job : undefined;
+  const cached = getFreshMapEntry(cache, cacheKey);
+  let job = cached?.job;
   if (!job) {
     job = parse(detailSchema, await request(`${API}/${company}/postings/${id}`, signal));
     checkCompany(job, company);
@@ -166,12 +150,7 @@ async function details(input: {
     )
     .join("\n");
   if (!descriptionHtml) throw upstreamError("SmartRecruiters posting description is missing.");
-  cache.delete(cacheKey);
-  cache.set(cacheKey, { job, expires: Date.now() + 15 * 60_000 });
-  while (cache.size > 200) {
-    const oldest = cache.keys().next().value;
-    if (oldest) cache.delete(oldest);
-  }
+  setBoundedMapEntry(cache, cacheKey, { job, expires: Date.now() + 15 * 60_000 }, 200);
   return { job, company, descriptionHtml };
 }
 
@@ -194,23 +173,15 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     supportsBranding: false,
   },
   parseCatalogSources(entries) {
-    return entries.flatMap((entry) => {
-      const parsed = sourceSchema.safeParse(entry);
-      if (!parsed.success) return [];
-      try {
-        const result = board(parsed.data.careersUrl);
-        return [
-          {
-            id: key(result.company),
-            label: parsed.data.label,
-            sourceType: "smartrecruiters",
-            careersUrl: result.careersUrl,
-            cxsJobsUrl: null,
-          },
-        ];
-      } catch {
-        return [];
-      }
+    return parseCatalogSourcesLenient(entries, sourceSchema, (parsed) => {
+      const result = board(parsed.careersUrl);
+      return {
+        id: key(result.company),
+        label: parsed.label,
+        sourceType: "smartrecruiters",
+        careersUrl: result.careersUrl,
+        cxsJobsUrl: null,
+      };
     });
   },
   hydrateSelectedSource(source) {
@@ -225,20 +196,21 @@ export const smartrecruitersWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async normalizeCustomSelection(input) {
     const result = board(input.careersUrl);
     const list = parseList(
-      await request(`${API}/${result.company}/postings?limit=1&offset=0`, watchlistRequestSignal()),
+      await request(`${API}/${result.company}/postings?limit=1&offset=0`, createBudgetSignal()),
     );
     for (const job of list.content) checkCompany(job, result.company);
     return {
       careersUrl: `${ORIGIN}/${list.content[0]?.company.identifier || result.company}`,
-      label:
-        input.label?.trim() && input.label.trim() !== input.careersUrl.trim()
-          ? input.label.trim()
-          : list.content[0]?.company.name || result.company,
+      label: resolveCustomLabel(
+        input.label,
+        input.careersUrl,
+        list.content[0]?.company.name || result.company,
+      ),
     };
   },
   async fetchJobs(input) {
     const { company } = board(input.source.careersUrl);
-    const signal = watchlistRequestSignal(input.signal);
+    const signal = createBudgetSignal(input.signal);
     const collected = new Map<string, Job>();
     let offset = 0;
     let total = 0;

@@ -1,4 +1,6 @@
-import { shouldHydrateSourceLabel } from "./branding";
+import { fetchLogoBranding, shouldHydrateSourceLabel } from "./branding";
+import { resolveCustomLabel } from "./common";
+import { getSourceHost } from "./url";
 import {
   bamboohrUrlToCompanyLabel,
   bamboohrUrlToSourceKey,
@@ -8,12 +10,10 @@ import {
   parseBamboohrUrl,
 } from "@career-boards/bamboohr";
 import { upstreamError } from "@infra/errors";
-import { detectLogoMimeType } from "@infra/image-mime";
 import type { ManualJobDraft, WatchlistSelectedSource } from "@shared/types";
 import { z } from "zod";
 import type { WatchlistCatalogSourceAdapter } from "./types";
 
-const BAMBOOHR_LOGO_MAX_BYTES = 1_000_000;
 const BAMBOOHR_WATCHLIST_MAX_JOBS = 60;
 
 const bamboohrSourceSchema = z.object({
@@ -63,16 +63,13 @@ export const bamboohrWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     };
   },
   normalizeCustomSelection(input) {
-    const parsed = parseBamboohrUrl(input.careersUrl);
-    const canonicalCareersUrl = parsed.canonicalCareersUrl;
-    const trimmedLabel = input.label?.trim();
-    const label =
-      trimmedLabel && trimmedLabel !== input.careersUrl.trim()
-        ? trimmedLabel
-        : bamboohrUrlToCompanyLabel(canonicalCareersUrl);
-
+    const canonicalCareersUrl = parseBamboohrUrl(input.careersUrl).canonicalCareersUrl;
     return {
-      label,
+      label: resolveCustomLabel(
+        input.label,
+        input.careersUrl,
+        bamboohrUrlToCompanyLabel(canonicalCareersUrl),
+      ),
       careersUrl: canonicalCareersUrl,
     };
   },
@@ -151,51 +148,12 @@ export const bamboohrWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       });
     }
 
-    const response = await fetch(logoUrl, {
-      method: "GET",
-      redirect: "follow",
+    return fetchLogoBranding({
+      providerLabel: "BambooHR",
+      logoUrl,
+      careersUrl: parseBamboohrUrl(input.source.careersUrl).canonicalCareersUrl,
       signal: input.signal,
     });
-
-    if (!response.ok) {
-      throw upstreamError(`Failed to fetch BambooHR logo with HTTP ${response.status}.`, {
-        url: logoUrl,
-        status: response.status,
-      });
-    }
-
-    const contentLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(contentLength) && contentLength > BAMBOOHR_LOGO_MAX_BYTES) {
-      throw upstreamError("BambooHR company logo exceeded size limit", {
-        url: logoUrl,
-        contentLength,
-        maxBytes: BAMBOOHR_LOGO_MAX_BYTES,
-      });
-    }
-
-    const contentType = response.headers.get("content-type");
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.byteLength > BAMBOOHR_LOGO_MAX_BYTES) {
-      throw upstreamError("BambooHR company logo exceeded size limit", {
-        url: logoUrl,
-        contentLength: bytes.byteLength,
-        maxBytes: BAMBOOHR_LOGO_MAX_BYTES,
-      });
-    }
-    const mimeType = detectLogoMimeType(bytes, contentType);
-    if (!mimeType) {
-      throw upstreamError("BambooHR logo response was not an image.", {
-        url: logoUrl,
-        contentType: contentType?.trim() || null,
-      });
-    }
-
-    return {
-      careersUrl: parseBamboohrUrl(input.source.careersUrl).canonicalCareersUrl,
-      logoUrl,
-      mimeType,
-      imageDataUrl: `data:${mimeType};base64,${bytes.toString("base64")}`,
-    };
   },
 };
 
@@ -238,14 +196,6 @@ function buildManualDraft(
     jobDescription: details.jobDescriptionText,
     jobType: details.employmentStatus,
   };
-}
-
-function getSourceHost(value: string): string | null {
-  try {
-    return new URL(value).hostname || null;
-  } catch {
-    return null;
-  }
 }
 
 function comparePostedAtDesc(left: string | null, right: string | null): number {

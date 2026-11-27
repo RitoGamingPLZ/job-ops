@@ -1,11 +1,14 @@
-import { formatTranscript, needsWindowsShell } from "../utils/cli-common";
+import {
+  buildCliErrorMessage,
+  formatTranscript,
+  needsWindowsShell,
+  validateCliCredentials,
+} from "../utils/cli-common";
 import { toNonEmptyString } from "@shared/utils/type-conversion";
 import { getPositiveIntEnv } from "@server/utils/env";
 import { spawn } from "node:child_process";
-import { logger } from "@infra/logger";
 import { type JsonSchemaDefinition, type LlmRequestOptions } from "../types";
 import { runCliProcess } from "../utils/cli-process";
-import { truncate } from "../utils/string";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const DEFAULT_VALIDATION_TIMEOUT_MS = 60_000;
@@ -29,14 +32,12 @@ const CLAUDE_CLI_SUGGESTED_MODELS: string[] = [
 ];
 
 function buildClaudeCliErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("ENOENT")) {
-    return "Claude CLI was not found in PATH. Install @anthropic-ai/claude-code globally or set CLAUDE_CLI_BIN.";
-  }
-  if (message.includes("EINVAL")) {
-    return "Claude CLI could not be started (EINVAL). Try unsetting CLAUDE_CLI_BIN so `claude` resolves via PATH, or set it to the real CLI entry (not a broken shim path).";
-  }
-  return truncate(message, 500);
+  return buildCliErrorMessage(error, {
+    enoentMessage:
+      "Claude CLI was not found in PATH. Install @anthropic-ai/claude-code globally or set CLAUDE_CLI_BIN.",
+    einvalMessage:
+      "Claude CLI could not be started (EINVAL). Try unsetting CLAUDE_CLI_BIN so `claude` resolves via PATH, or set it to the real CLI entry (not a broken shim path).",
+  });
 }
 
 /**
@@ -232,45 +233,23 @@ export class ClaudeCliClient {
       "CLAUDE_CLI_VALIDATION_TIMEOUT_MS",
       DEFAULT_VALIDATION_TIMEOUT_MS,
     );
-    try {
-      const { stdout } = await runClaudeCliOnce({
-        spawnFn: this.spawnFn,
-        input: "Return the structured output exactly as instructed.",
-        inputFormat: "text",
-        model: null,
-        jsonSchema: VALIDATION_SCHEMA,
-        timeoutMs,
-        signal,
-      });
-      try {
+    return validateCliCredentials({
+      label: "Claude CLI",
+      run: () =>
+        runClaudeCliOnce({
+          spawnFn: this.spawnFn,
+          input: "Return the structured output exactly as instructed.",
+          inputFormat: "text",
+          model: null,
+          jsonSchema: VALIDATION_SCHEMA,
+          timeoutMs,
+          signal,
+        }),
+      parse: (stdout) => {
         parseCliJsonOutput(stdout);
-      } catch {
-        return {
-          valid: false,
-          message:
-            "Claude CLI ran but the response was not in the expected format. Check CLI output or authentication.",
-          username: null,
-        };
-      }
-      return { valid: true, message: null, username: null };
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("aborted")) {
-        return {
-          valid: false,
-          message: "Claude CLI validation was cancelled.",
-          username: null,
-        };
-      }
-      const message = buildClaudeCliErrorMessage(error);
-      logger.warn("Claude CLI credential validation failed", {
-        message: truncate(message, 200),
-      });
-      return {
-        valid: false,
-        message,
-        username: null,
-      };
-    }
+      },
+      formatError: buildClaudeCliErrorMessage,
+    });
   }
 
   listModels(): Promise<string[]> {

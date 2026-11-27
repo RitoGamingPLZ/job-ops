@@ -9,7 +9,7 @@ import { removeStoredJobDocuments } from "@server/services/job-document-storage"
 import { trackApplicationAcceptedIfNeeded } from "@server/services/jobs/analytics";
 import { removeStoredJobPdf } from "@server/services/pdf-storage";
 import { type Request, type Response, Router } from "express";
-import { requireAnyPermissionMiddleware } from "../../require-admin";
+import { requireJobsOrInProgress } from "../../require-admin";
 import {
   assertJobFeatureAccess,
   hydrateJobPdfFreshness,
@@ -19,8 +19,6 @@ import {
 } from "./shared";
 
 export const jobsMutationsRouter = Router();
-
-const requireJobsOrInProgress = requireAnyPermissionMiddleware("jobs", "inProgress");
 
 jobsMutationsRouter.delete("/:id", requireJobsOrInProgress, async (req: Request, res: Response) => {
   const route = "DELETE /api/jobs/:id";

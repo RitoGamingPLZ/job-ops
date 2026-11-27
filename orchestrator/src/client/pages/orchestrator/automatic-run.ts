@@ -1,3 +1,4 @@
+import { migrateLegacyScopedStorage, readScopedStorage } from "@client/lib/scoped-storage";
 import { parseTokenizedInput } from "@client/lib/tokenized-input";
 import {
   buildLocationPreferencesSummary,
@@ -65,20 +66,6 @@ export const RUN_MEMORY_STORAGE_KEY = "jobops.pipeline.run-memory.v1";
 
 export function getRunMemoryStorageKey(): string {
   return getAuthScopedStorageKey(RUN_MEMORY_STORAGE_KEY);
-}
-
-function readRunMemoryStorage(): string | null {
-  const storageKey = getRunMemoryStorageKey();
-  const scoped = localStorage.getItem(storageKey);
-  if (scoped || storageKey === RUN_MEMORY_STORAGE_KEY) return scoped;
-  return localStorage.getItem(RUN_MEMORY_STORAGE_KEY);
-}
-
-function migrateLegacyRunMemoryStorage(raw: string): void {
-  const storageKey = getRunMemoryStorageKey();
-  if (storageKey === RUN_MEMORY_STORAGE_KEY) return;
-  if (localStorage.getItem(storageKey)) return;
-  localStorage.setItem(storageKey, raw);
 }
 
 export const SEARCH_SCOPE_OPTIONS: Array<{
@@ -208,7 +195,8 @@ export function summarizeLocationPreferences(
 
 export function loadAutomaticRunMemory(): AutomaticRunMemory | null {
   try {
-    const raw = readRunMemoryStorage();
+    const storageKey = getRunMemoryStorageKey();
+    const raw = readScopedStorage(storageKey, RUN_MEMORY_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     if (typeof parsed.topN !== "number" || typeof parsed.minSuitabilityScore !== "number") {
@@ -221,7 +209,7 @@ export function loadAutomaticRunMemory(): AutomaticRunMemory | null {
         ? normalizePipelineRunBudget(parsed.runBudget)
         : undefined;
     const explicitPresetId = isAutomaticPresetSelection(parsed.presetId) ? parsed.presetId : null;
-    migrateLegacyRunMemoryStorage(raw);
+    migrateLegacyScopedStorage(storageKey, RUN_MEMORY_STORAGE_KEY, raw);
 
     if (explicitPresetId && explicitPresetId !== "custom") {
       const preset = AUTOMATIC_PRESETS[explicitPresetId];

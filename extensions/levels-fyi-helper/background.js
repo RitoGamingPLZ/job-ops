@@ -20,6 +20,19 @@ async function findJobOpsTabId(preferredTabId) {
   return tabs[0]?.id ?? null;
 }
 
+function handleAsyncMessage(sendResponse, fn) {
+  Promise.resolve()
+    .then(fn)
+    .then((response) => sendResponse(response))
+    .catch((error) =>
+      sendResponse({
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  return true;
+}
+
 ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== "object") return undefined;
 
@@ -33,78 +46,48 @@ ext.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sourceTabId: sender.tab?.id ?? null,
       updatedAt: Date.now(),
     };
-    ext.storage.local
-      .set({ [ACTIVE_LOOKUP_KEY]: lookup })
-      .then(() => sendResponse({ ok: true }))
-      .catch((error) =>
-        sendResponse({
-          ok: false,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    return true;
+    return handleAsyncMessage(sendResponse, async () => {
+      await ext.storage.local.set({ [ACTIVE_LOOKUP_KEY]: lookup });
+      return { ok: true };
+    });
   }
 
   if (message.type === "GET_ACTIVE_LOOKUP") {
-    ext.storage.local
-      .get(ACTIVE_LOOKUP_KEY)
-      .then((result) => {
-        const lookup = result?.[ACTIVE_LOOKUP_KEY] ?? null;
-        if (!lookup || Date.now() - lookup.updatedAt > LOOKUP_TTL_MS) {
-          sendResponse({ ok: true, lookup: null });
-          return;
-        }
-        sendResponse({ ok: true, lookup });
-      })
-      .catch((error) =>
-        sendResponse({
-          ok: false,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    return true;
+    return handleAsyncMessage(sendResponse, async () => {
+      const result = await ext.storage.local.get(ACTIVE_LOOKUP_KEY);
+      const lookup = result?.[ACTIVE_LOOKUP_KEY] ?? null;
+      if (!lookup || Date.now() - lookup.updatedAt > LOOKUP_TTL_MS) {
+        return { ok: true, lookup: null };
+      }
+      return { ok: true, lookup };
+    });
   }
 
   if (message.type === "CLEAR_ACTIVE_LOOKUP") {
-    ext.storage.local
-      .remove(ACTIVE_LOOKUP_KEY)
-      .then(() => sendResponse({ ok: true }))
-      .catch((error) =>
-        sendResponse({
-          ok: false,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      );
-    return true;
+    return handleAsyncMessage(sendResponse, async () => {
+      await ext.storage.local.remove(ACTIVE_LOOKUP_KEY);
+      return { ok: true };
+    });
   }
 
   if (message.type === "SEND_SALARY_TO_JOBOPS") {
-    (async () => {
-      try {
-        const stored = await ext.storage.local.get(ACTIVE_LOOKUP_KEY);
-        const lookup = stored?.[ACTIVE_LOOKUP_KEY] ?? null;
-        const targetTabId = await findJobOpsTabId(lookup?.sourceTabId);
-        if (typeof targetTabId !== "number") {
-          sendResponse({
-            ok: false,
-            error: "No open Job-Ops tab found on localhost or 127.0.0.1.",
-          });
-          return;
-        }
-
-        await ext.tabs.sendMessage(targetTabId, {
-          type: "APPLY_SALARY",
-          payload: message.payload,
-        });
-        sendResponse({ ok: true });
-      } catch (error) {
-        sendResponse({
+    return handleAsyncMessage(sendResponse, async () => {
+      const stored = await ext.storage.local.get(ACTIVE_LOOKUP_KEY);
+      const lookup = stored?.[ACTIVE_LOOKUP_KEY] ?? null;
+      const targetTabId = await findJobOpsTabId(lookup?.sourceTabId);
+      if (typeof targetTabId !== "number") {
+        return {
           ok: false,
-          error: error instanceof Error ? error.message : String(error),
-        });
+          error: "No open Job-Ops tab found on localhost or 127.0.0.1.",
+        };
       }
-    })();
-    return true;
+
+      await ext.tabs.sendMessage(targetTabId, {
+        type: "APPLY_SALARY",
+        payload: message.payload,
+      });
+      return { ok: true };
+    });
   }
 
   return undefined;

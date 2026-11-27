@@ -1,3 +1,9 @@
+import { toOptionalString } from "./utils/type-conversion";
+
+export const CAREER_BOARD_DEFAULT_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
+
 async function fetchJson<T>(
   board: string,
   fetchFn: typeof fetch,
@@ -34,16 +40,12 @@ function requiredString(board: string, value: unknown, fieldName: string, url: s
   throw new Error(`${board} response is missing required field ${fieldName} for ${url}.`);
 }
 
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
 export function createCareerBoardResponseHelpers(board: string) {
   return {
     fetchJson: <T>(fetchFn: typeof fetch, input: Parameters<typeof fetchJson>[2]) =>
       fetchJson<T>(board, fetchFn, input),
     requiredString: (value: unknown, fieldName: string, url: string) =>
       requiredString(board, value, fieldName, url),
-    optionalString,
+    optionalString: toOptionalString,
   };
 }

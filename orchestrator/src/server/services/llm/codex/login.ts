@@ -1,5 +1,6 @@
 import { getPositiveIntEnv } from "@server/utils/env";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { getErrorMessage } from "@infra/errors";
 import { logger } from "@infra/logger";
 import { truncate } from "../utils/string";
 
@@ -326,7 +327,7 @@ export async function startCodexDeviceAuth(forceRestart = false): Promise<CodexD
     return snapshot;
   } catch (error) {
     logger.warn("Codex device-auth startup failed", {
-      message: error instanceof Error ? error.message : String(error),
+      message: getErrorMessage(error),
     });
     throw error;
   }

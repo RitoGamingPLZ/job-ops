@@ -11,6 +11,8 @@ import {
 import type { JsonSchemaDefinition } from "@server/services/llm/types";
 import { createConfiguredLlmService, resolveLlmModel } from "@server/services/modelSelection";
 import { getWatchlistSourceAdapter } from "@server/watchlist/adapters";
+import { classifyLlmFailure } from "@server/watchlist/adapters/common";
+import { createBudgetSignal } from "@server/watchlist/adapters/http";
 import {
   detectWatchlistSourceTypeForUrl,
   getWatchlistBaseUrlKey,
@@ -208,17 +210,17 @@ export async function suggestFilters(input: {
     ],
     jsonSchema,
     maxRetries: 0,
-    signal: input.signal
-      ? AbortSignal.any([input.signal, AbortSignal.timeout(60_000)])
-      : AbortSignal.timeout(60_000),
+    signal: createBudgetSignal(input.signal, 60_000),
   });
   if (!response.success) {
-    const status = response.error.match(/LLM API error: (\d{3})\b/)?.[1];
-    if (response.error === "LLM API key not configured") throw serviceUnavailable(response.error);
-    if (/\b(timed?\s*out|aborted|AbortError|TimeoutError)\b/i.test(response.error))
+    const failure = classifyLlmFailure(response.error);
+    if (failure.kind === "not_configured") throw serviceUnavailable(response.error);
+    if (failure.kind === "timeout_or_aborted")
       throw serviceUnavailable("Filter suggestion request timed out or was aborted");
     throw upstreamError(
-      status ? `LLM request failed (HTTP ${status})` : "LLM could not suggest filters",
+      failure.kind === "http"
+        ? `LLM request failed (HTTP ${failure.status})`
+        : "LLM could not suggest filters",
     );
   }
   const parsed = suggestionSchema.safeParse(response.data);

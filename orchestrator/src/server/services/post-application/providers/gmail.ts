@@ -1,9 +1,11 @@
+import { getErrorMessage } from "@infra/errors";
 import { logger } from "@infra/logger";
 import {
   disconnectPostApplicationIntegration,
   getPostApplicationIntegration,
   upsertConnectedPostApplicationIntegration,
 } from "@server/repositories/post-application-integrations";
+import type { GmailCredentials } from "@server/services/post-application/ingestion/gmail-api";
 import { runGmailIngestionSync } from "@server/services/post-application/ingestion/gmail-sync";
 import type { PostApplicationIntegration } from "@shared/types";
 import { toNonEmptyString } from "@shared/utils/type-conversion";
@@ -17,13 +19,7 @@ import type {
   PostApplicationProviderSyncArgs,
 } from "./types";
 
-type GmailCredentialPayload = {
-  refreshToken: string;
-  accessToken?: string;
-  expiryDate?: number;
-  scope?: string;
-  tokenType?: string;
-  email?: string;
+type GmailCredentialPayload = GmailCredentials & {
   displayName?: string;
 };
 
@@ -214,8 +210,7 @@ export const gmailProvider: PostApplicationProviderAdapter = {
       try {
         await revokeGoogleToken(refreshToken);
       } catch (error) {
-        revokeWarning =
-          error instanceof Error ? error.message : "Google token revoke failed before disconnect.";
+        revokeWarning = getErrorMessage(error, "Google token revoke failed before disconnect.");
         logger.warn("Gmail token revoke failed during disconnect", {
           provider: "gmail",
           accountKey: args.accountKey,

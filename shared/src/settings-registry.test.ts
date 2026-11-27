@@ -218,6 +218,15 @@ describe("settingsRegistry helpers", () => {
       expect(settingsRegistry.workplaceTypes.parse('["remote","satellite"]')).toBeNull();
       expect(settingsRegistry.workplaceTypes.parse("[]")).toBeNull();
     });
+
+    it("filters non-strings and deduplicates blockedCompanyKeywords case-insensitively", () => {
+      expect(
+        settingsRegistry.blockedCompanyKeywords.parse(
+          JSON.stringify(["  Staffing  ", 42, "", "staffing", "Recruit", null]),
+        ),
+      ).toEqual(["Staffing", "Recruit"]);
+      expect(settingsRegistry.blockedCompanyKeywords.parse("not-json")).toBeNull();
+    });
   });
 
   describe("Resume projects settings", () => {

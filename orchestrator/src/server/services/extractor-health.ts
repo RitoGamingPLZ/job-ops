@@ -365,10 +365,12 @@ export async function checkExtractorHealth(
   return fresh;
 }
 
+/** @lintignore Tests dynamically import the service after configuring the environment. */
 export function __resetExtractorHealthCacheForTests(): void {
   extractorHealthCache.clear();
 }
 
+/** @lintignore Tests dynamically import the service after configuring the environment. */
 export function __getExtractorHealthCacheTtlMsForTests(): number {
   return HEALTH_CACHE_TTL_MS;
 }

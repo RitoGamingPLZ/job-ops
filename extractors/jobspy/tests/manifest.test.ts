@@ -7,7 +7,7 @@ const { runJobSpyMock } = vi.hoisted(() => ({
 
 vi.mock("../src/run", () => ({ runJobSpy: runJobSpyMock }));
 
-import manifest from "../manifest";
+import { manifest } from "../manifest";
 
 describe("JobSpy manifest map-radius planning", () => {
   beforeEach(() => {

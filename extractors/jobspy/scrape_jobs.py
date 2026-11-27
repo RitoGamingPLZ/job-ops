@@ -8,6 +8,7 @@ import pandas as pd
 from jobspy import scrape_jobs
 
 PROGRESS_PREFIX = "JOBOPS_PROGRESS "
+SUPPORTED_SITES = {"linkedin", "indeed"}
 
 
 def _env_str(name: str, default: str) -> str:
@@ -121,7 +122,23 @@ def _append_site_frame(
 
 
 def main() -> int:
-    sites = _parse_sites(_env_str("JOBSPY_SITES", "indeed,linkedin"))
+    requested_sites = _parse_sites(_env_str("JOBSPY_SITES", "indeed,linkedin"))
+    unsupported_sites = [site for site in requested_sites if site not in SUPPORTED_SITES]
+    if unsupported_sites:
+        print(
+            f"jobspy: Ignoring unsupported site(s): {', '.join(unsupported_sites)}. "
+            f"Supported sites: {', '.join(sorted(SUPPORTED_SITES))}.",
+            file=sys.stderr,
+            flush=True,
+        )
+    sites = [site for site in requested_sites if site in SUPPORTED_SITES]
+    if not sites:
+        print(
+            f"jobspy: No supported sites requested. Supported sites: {', '.join(sorted(SUPPORTED_SITES))}.",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 1
     search_term = _env_str("JOBSPY_SEARCH_TERM", "web developer")
     location = _env_str("JOBSPY_LOCATION", "")
     linkedin_location = _env_str("JOBSPY_LINKEDIN_LOCATION", location)
