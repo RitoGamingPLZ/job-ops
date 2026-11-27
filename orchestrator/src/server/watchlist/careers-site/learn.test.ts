@@ -830,3 +830,172 @@ it("learns host recipes from a query-stripped listing even when first requested 
   const evidence = JSON.parse(callJson.mock.calls[0][0].messages[1].content);
   expect(evidence.pageUrl).toBe(careers);
 });
+
+describe("learnRecipe search and field capabilities", () => {
+  const form = '<form method="get"><input type="search" name="q"></form>';
+  const listingWithSearch = `${form}<a href="/jobs/engineer-123">Senior Engineer</a><a href="/jobs/analyst-456">Data Analyst</a>`;
+  function sitemapBoard() {
+    pages[`${root}/sitemap.xml`] = `<urlset><url><loc>${jobUrl}</loc></url></urlset>`;
+    pages[jobUrl] = jsonld;
+    pages[careers] = listingWithSearch;
+  }
+
+  it("adds a verified search to a sitemap recipe that needs no model", async () => {
+    sitemapBoard();
+    // The keyword narrows the board to a different posting, so the control is real.
+    pages[`${careers}?q=analyst`] = `<a href="/jobs/analyst-456">Data Analyst</a>`;
+    vi.mocked(runRecipe).mockResolvedValue([{ ...job, salary: "USD 90,000", deadline: null }]);
+    const result = await learnRecipe(careers, {});
+    expect(callJson).not.toHaveBeenCalled();
+    expect(result.version).toBe(2);
+    expect(result.listing).toEqual({ kind: "sitemap", url: `${root}/sitemap.xml` });
+    expect(result.search).toMatchObject({
+      url: careers,
+      params: [{ key: "q", input: { kind: "text" } }],
+      pagination: { kind: "none" },
+      render: false,
+    });
+    // Only the JobPosting rule that produced a value on a sampled posting survives.
+    expect(result.detail).toEqual({
+      kind: "jsonld",
+      fields: { salary: { kind: "jobPosting", property: "baseSalary" } },
+    });
+  });
+
+  it("learns pagination only when page two keeps the keyword and shows new postings", async () => {
+    sitemapBoard();
+    pages[`${careers}?q=analyst`] =
+      `<a href="/jobs/analyst-456">Data Analyst</a><a href="${careers}?q=analyst&page=2">2</a>`;
+    pages[`${careers}?q=analyst&page=2`] = `<a href="/jobs/analyst-789">Another Analyst</a>`;
+    const result = await learnRecipe(careers, {});
+    expect(result.search?.pagination).toEqual({ kind: "query", param: "page", start: 1, step: 1 });
+    expect(result.search?.maxPages).toBe(5);
+  });
+
+  it("drops a search control the site silently ignores and stays on version 1", async () => {
+    sitemapBoard();
+    // The keyword returns the same postings as the unfiltered board: it filters nothing.
+    pages[`${careers}?q=analyst`] = listingWithSearch;
+    vi.mocked(runRecipe).mockResolvedValue([job]);
+    const result = await learnRecipe(careers, {});
+    expect(result.search).toBeUndefined();
+    expect(result.detail).toEqual({ kind: "jsonld" });
+    expect(result.version).toBe(1);
+  });
+
+  it("keeps a working sitemap recipe when the listing cannot be read for search", async () => {
+    sitemapBoard();
+    delete pages[careers];
+    const result = await learnRecipe(careers, {});
+    expect(result.listing.kind).toBe("sitemap");
+    expect(result.search).toBeUndefined();
+    expect(result.version).toBe(1);
+  });
+
+  it("does not spend more than the search budget on discovery", async () => {
+    sitemapBoard();
+    const before = () => vi.mocked(loadPage).mock.calls.length;
+    const start = before();
+    await learnRecipe(careers, {});
+    // 7 sitemap-phase requests plus at most 8 for search; never an unbounded crawl.
+    expect(before() - start).toBeLessThanOrEqual(15);
+  });
+
+  it("keeps model-proposed selector fields only where they produced a value", async () => {
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        ...learned,
+        detail: {
+          ...learned.detail,
+          fields: {
+            salary: { kind: "selector", selector: ".pay" },
+            jobLevel: { kind: "selector", selector: ".level" },
+          },
+        },
+      },
+    });
+    vi.mocked(runRecipe).mockResolvedValue([{ ...job, salary: "$100k", jobLevel: null }]);
+    const result = await learnRecipe(careers, {});
+    expect(result.version).toBe(2);
+    expect(result.detail).toMatchObject({
+      fields: { salary: { kind: "selector", selector: ".pay" } },
+    });
+    expect(result.detail.fields).not.toHaveProperty("jobLevel");
+  });
+
+  it("drops a selector rule that returns the same text on every posting", async () => {
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        ...learned,
+        detail: {
+          ...learned.detail,
+          fields: { jobType: { kind: "selector", selector: "footer .badge" } },
+        },
+      },
+    });
+    vi.mocked(runRecipe).mockResolvedValue(
+      [1, 2, 3].map((n) => ({
+        ...job,
+        id: `${n}`,
+        url: `${root}/jobs/e-${n}`,
+        jobType: "Equal opportunity",
+      })),
+    );
+    const result = await learnRecipe(careers, {});
+    expect(result.version).toBe(1);
+    expect(result.detail).not.toHaveProperty("fields");
+  });
+
+  it("marks JSON-LD details as rendered when only a rendered page had a posting", async () => {
+    pages[careers] = '<a href="/jobs/engineer-123">Engineer</a>';
+    pages[jobUrl] = "<html></html>";
+    callJson.mockResolvedValue({
+      success: true,
+      data: { ...learned, detail: { kind: "jsonld" } },
+    });
+    vi.mocked(loadPage).mockImplementation(async (url, options) => ({
+      url,
+      status: url in pages ? 200 : 404,
+      html: url === jobUrl && options?.render ? jsonld : (pages[url] ?? "missing"),
+    }));
+    const result = await learnRecipe(careers, {});
+    expect(result.detail).toMatchObject({ kind: "jsonld", render: true });
+  });
+});
+
+describe("learnRecipe distrusts version 2 material from the model", () => {
+  it("drops a model-written search and JSON-LD field rules that code did not verify", async () => {
+    callJson.mockResolvedValue({
+      success: true,
+      data: {
+        ...learned,
+        search: {
+          url: `${careers}`,
+          params: [
+            {
+              key: "team",
+              input: { kind: "choice", options: [{ value: "x", label: "attacker text" }] },
+              encoding: "single",
+            },
+          ],
+          pagination: { kind: "none" },
+          maxPages: 1,
+          render: false,
+        },
+        detail: {
+          kind: "jsonld",
+          render: true,
+          waitFor: "body",
+          fields: { salary: { kind: "jobPosting", property: "baseSalary" } },
+        },
+      },
+    });
+    pages[jobUrl] = jsonld;
+    const result = await learnRecipe(careers, {});
+    expect(result.search).toBeUndefined();
+    expect(result.detail).toEqual({ kind: "jsonld" });
+    expect(result.version).toBe(1);
+  });
+});

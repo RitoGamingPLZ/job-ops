@@ -6,6 +6,7 @@ import type {
   WatchlistJobDetailsResponse,
   WatchlistJobState,
   WatchlistResultsResponse,
+  WatchlistSearchControlsResponse,
   WatchlistSourceBrandingInput,
   WatchlistSourceBrandingResponse,
   WatchlistSourceScanInput,
@@ -108,6 +109,35 @@ export async function suggestWatchlistFilters(input: {
   forceRefresh?: boolean;
 }): Promise<WatchlistSuggestedFilterPlan> {
   return fetchApi<WatchlistSuggestedFilterPlan>("/watchlist/suggest-filters", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getWatchlistSearchControls(input: {
+  careersUrl: string;
+}): Promise<WatchlistSearchControlsResponse> {
+  return fetchApi<WatchlistSearchControlsResponse>("/watchlist/search-controls", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** Builds the source URL for these filter values on the server; never calls the LLM. */
+export async function applyWatchlistSearchFilters(input: {
+  careersUrl: string;
+  values: Record<string, string[]>;
+}): Promise<{ careersUrl: string }> {
+  return fetchApi<{ careersUrl: string }>("/watchlist/search-controls/apply", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function rescanWatchlistSearchControls(input: {
+  careersUrl: string;
+}): Promise<{ status: "learning" | "unsupported" }> {
+  return fetchApi<{ status: "learning" | "unsupported" }>("/watchlist/search-controls/rescan", {
     method: "POST",
     body: JSON.stringify(input),
   });

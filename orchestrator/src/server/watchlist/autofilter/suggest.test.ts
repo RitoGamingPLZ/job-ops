@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   normalize: vi.fn(),
   callJson: vi.fn(),
   settings: vi.fn(),
+  learned: vi.fn(),
 }));
 vi.mock("./facets", () => ({
   facetDiscoverers: { lever: mocks.discover, careers_site: mocks.discover },
@@ -15,6 +16,7 @@ vi.mock("@server/watchlist/adapters", () => ({
   getWatchlistSourceAdapter: () => ({
     fetchJobs: mocks.fetchJobs,
     normalizeCustomSelection: mocks.normalize,
+    discoverSearchFacets: mocks.learned,
   }),
 }));
 vi.mock("@server/watchlist/results", () => ({
@@ -61,6 +63,7 @@ beforeEach(() => {
     workplaceTypes: '["remote"]',
   });
   mocks.normalize.mockImplementation(async (value) => value);
+  mocks.learned.mockResolvedValue([]);
   mocks.fetchJobs.mockResolvedValue({
     total: 5,
     jobs: [{ title: "Engineer" }],
@@ -299,4 +302,83 @@ it.each([0, 4, 10, 60])("uses listing count even when crawler total is %i", asyn
   const result = await suggestFilters({ ...input, sourceType: "careers_site" });
   expect(result.totals).toEqual({ filtered: 25, unfiltered: 100 });
   expect(result.sampleTitles).toEqual([]);
+});
+
+it("lets the model use a keyword box the source verified for itself", async () => {
+  mocks.learned.mockResolvedValue([{ key: "q", multi: false, freeText: true }]);
+  mocks.callJson.mockResolvedValue({
+    success: true,
+    data: {
+      params: [
+        { key: "q", values: ["software developer"] },
+        { key: "team", values: ["Engineering"] },
+      ],
+      rationale: "Keyword plus team",
+    },
+  });
+  const result = await suggestFilters(input);
+  expect(mocks.learned).toHaveBeenCalledWith({ careersUrl: input.careersUrl });
+  expect(result.params).toEqual([
+    { key: "q", values: ["software developer"] },
+    { key: "team", values: ["Engineering"] },
+  ]);
+  expect(new URL(result.suggestedUrl).searchParams.get("q")).toBe("software developer");
+  const sent = JSON.parse(mocks.callJson.mock.calls[0][0].messages[1].content);
+  expect(sent.facets.params.map((param: { key: string }) => param.key)).toEqual([
+    "team",
+    "location",
+    "q",
+  ]);
+});
+
+it("keeps the scraped facet when the source offers the same key", async () => {
+  mocks.learned.mockResolvedValue([{ key: "team", multi: false, freeText: true }]);
+  mocks.callJson.mockResolvedValue({
+    success: true,
+    data: { params: [{ key: "team", values: ["Made up team"] }], rationale: "x" },
+  });
+  await expect(suggestFilters(input)).rejects.toThrow("No matching filters");
+  const sent = JSON.parse(mocks.callJson.mock.calls[0][0].messages[1].content);
+  const team = sent.facets.params.find((param: { key: string }) => param.key === "team");
+  expect(team.freeText).toBeUndefined();
+  expect(team.values).toHaveLength(2);
+});
+
+it.each([
+  ["fails", () => mocks.learned.mockRejectedValue(new Error("db down"))],
+  ["offers nothing", () => mocks.learned.mockResolvedValue([])],
+])("still suggests from scraped facets when the source's own lookup %s", async (_name, arrange) => {
+  arrange();
+  const result = await suggestFilters(input);
+  expect(result.params).toEqual([{ key: "team", values: ["Engineering"] }]);
+});
+
+it("tells the model what each facet means across boards", async () => {
+  mocks.discover.mockResolvedValue({
+    unfilteredTotal: 100,
+    params: [
+      { key: "commitment", multi: true, values: [{ value: "Full-time" }] },
+      { key: "offices", multi: false, values: [{ value: "Toronto" }] },
+      { key: "degree", multi: false, values: [{ value: "MASTERS" }] },
+      { key: "q", multi: false, freeText: true, role: "keyword" },
+    ],
+  });
+  mocks.callJson.mockResolvedValue({
+    success: true,
+    data: { params: [{ key: "offices", values: ["Toronto"] }], rationale: "x" },
+  });
+  await suggestFilters(input);
+  const request = mocks.callJson.mock.calls[0][0];
+  const sent = JSON.parse(request.messages[1].content);
+  expect(
+    Object.fromEntries(
+      sent.facets.params.map((p: { key: string; role?: string }) => [p.key, p.role]),
+    ),
+  ).toEqual({
+    commitment: "employmentType",
+    offices: "location",
+    degree: undefined,
+    q: "keyword",
+  });
+  expect(request.messages[0].content).toContain("role");
 });

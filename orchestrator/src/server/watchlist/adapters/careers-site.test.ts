@@ -795,3 +795,329 @@ describe("careersSiteWatchlistAdapter", () => {
     expect(mocks.run).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("careers-site search controls and extracted fields", () => {
+  const searchRecipe: Recipe = {
+    ...recipe,
+    version: 2,
+    search: {
+      url: "https://example.com/careers",
+      params: [
+        { key: "q", label: "Keyword", input: { kind: "text" }, encoding: "single" },
+        {
+          key: "team",
+          input: { kind: "choice", options: [{ value: "eng", label: "Engineering" }] },
+          encoding: "single",
+        },
+      ],
+      pagination: { kind: "none" },
+      maxPages: 1,
+      render: true,
+    },
+  };
+  let api: typeof import("./careers-site");
+  beforeEach(async () => {
+    api = await import("./careers-site");
+  });
+
+  it("carries salary, deadline, job type and level into the import draft, leaving gaps blank", async () => {
+    mocks.run.mockResolvedValue([
+      {
+        ...job("1"),
+        salary: "USD 90,000 per year",
+        deadline: "2026-12-31",
+        jobType: "Full-time",
+        jobLevel: null,
+      },
+    ]);
+    await adapter.fetchJobs({ source });
+    const { draft } = await adapter.prepareImportDraft({ source, jobRef: job("1").url });
+    expect(draft).toMatchObject({
+      salary: "USD 90,000 per year",
+      deadline: "2026-12-31",
+      jobType: "Full-time",
+    });
+    expect(draft.jobLevel).toBeUndefined();
+  });
+
+  it("offers verified controls with the values the saved URL already carries", async () => {
+    mocks.get.mockResolvedValue(record({ recipe: searchRecipe }));
+    const result = await api.getCareersSiteSearchControls(
+      "https://example.com/careers?q=nurse&team=eng&utm_source=x",
+    );
+    expect(result).toEqual({
+      status: "ready",
+      controls: [
+        { key: "q", label: "Keyword", role: "keyword", input: { kind: "text" }, multiple: false },
+        {
+          key: "team",
+          role: "department",
+          input: { kind: "choice", options: [{ value: "eng", label: "Engineering" }] },
+          multiple: false,
+        },
+      ],
+      values: { q: ["nurse"], team: ["eng"] },
+    });
+    expect(mocks.learn).not.toHaveBeenCalled();
+    expect(mocks.llm).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a recipe without search", record(), { status: "rescan" }],
+    ["no recipe yet", null, { status: "rescan" }],
+    [
+      "a block that has not expired",
+      record({ blockedReason: "HTTP 403", recipe: null }),
+      { status: "unsupported" },
+    ],
+  ])("reports %s", async (_name, stored, expected) => {
+    mocks.get.mockResolvedValue(stored);
+    expect(await api.getCareersSiteSearchControls("https://example.com/careers")).toEqual(expected);
+  });
+
+  it("does not offer controls learned for a different listing path", async () => {
+    mocks.get.mockResolvedValue(record({ recipe: searchRecipe }));
+    expect(await api.getCareersSiteSearchControls("https://example.com/other-board")).toEqual({
+      status: "unsupported",
+    });
+  });
+
+  it("builds the source URL server-side and rejects values the site never offered", async () => {
+    mocks.get.mockResolvedValue(record({ recipe: searchRecipe }));
+    expect(
+      await api.applyCareersSiteSearch("https://example.com/careers?q=old", {
+        q: ["data scientist"],
+        team: ["eng"],
+      }),
+    ).toEqual({ careersUrl: "https://example.com/careers?q=data+scientist&team=eng" });
+    expect(await api.applyCareersSiteSearch("https://example.com/careers?q=old", {})).toEqual({
+      careersUrl: "https://example.com/careers",
+    });
+    await expect(
+      api.applyCareersSiteSearch("https://example.com/careers", { team: ["sales"] }),
+    ).rejects.toThrow();
+    await expect(
+      api.applyCareersSiteSearch("https://example.com/careers", { nope: ["x"] }),
+    ).rejects.toThrow();
+    expect(mocks.llm).not.toHaveBeenCalled();
+  });
+
+  it("refuses to build filters for a host with no verified search", async () => {
+    await expect(
+      api.applyCareersSiteSearch("https://example.com/careers", { q: ["x"] }),
+    ).rejects.toThrow("not available");
+  });
+
+  it("rescans in the background without discarding the working recipe", async () => {
+    const pending = deferred<Recipe>();
+    mocks.learn.mockReturnValue(pending.promise);
+    await api.rescanCareersSite("https://example.com/careers?q=x");
+    expect(mocks.learn).toHaveBeenCalledWith(
+      "https://example.com/careers",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    // The stored recipe is untouched while the replacement is still being verified.
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(await api.getCareersSiteSearchControls("https://example.com/careers")).toEqual({
+      status: "learning",
+    });
+    pending.resolve(searchRecipe);
+    await vi.waitFor(() => expect(mocks.save).toHaveBeenCalledWith("example.com", searchRecipe));
+  });
+
+  it("runs a filtered refresh with the search's render setting capping it at 10 postings", async () => {
+    mocks.get.mockResolvedValue(record({ recipe: searchRecipe }));
+    const filtered = { ...source, careersUrl: "https://example.com/careers?q=nurse" };
+    await adapter.fetchJobs({ source: filtered });
+    expect(mocks.run).toHaveBeenLastCalledWith(
+      searchRecipe,
+      expect.objectContaining({ limit: 10, sourceUrl: "https://example.com/careers?q=nurse" }),
+    );
+    mocks.run.mockClear();
+    // The unfiltered listing is the sitemap, which does not render.
+    await adapter.fetchJobs({ source });
+    expect(mocks.run).toHaveBeenLastCalledWith(
+      searchRecipe,
+      expect.objectContaining({ limit: 60 }),
+    );
+  });
+});
+
+describe("careers-site search facets for Suggest Filters", () => {
+  const searchRecipe: Recipe = {
+    ...recipe,
+    version: 2,
+    search: {
+      url: "https://example.com/careers",
+      params: [
+        { key: "q", input: { kind: "text" }, encoding: "single" },
+        { key: "loc", input: { kind: "text", multiple: true }, encoding: "repeat" },
+        {
+          key: "team",
+          input: { kind: "choice", options: [{ value: "eng", label: "Engineering" }] },
+          encoding: "repeat",
+        },
+        {
+          key: "level",
+          input: { kind: "choice", options: [{ value: "a" }, { value: "b" }] },
+          encoding: "comma",
+        },
+      ],
+      pagination: { kind: "none" },
+      maxPages: 1,
+      render: false,
+    },
+  };
+
+  it("offers verified controls as facets, with no model call or crawl", async () => {
+    mocks.get.mockResolvedValue(record({ recipe: searchRecipe }));
+    expect(
+      await adapter.discoverSearchFacets?.({ careersUrl: "https://example.com/careers?q=old" }),
+    ).toEqual([
+      { key: "q", role: "keyword", multi: false, freeText: true },
+      { key: "loc", role: "location", multi: true, freeText: true },
+      { key: "team", role: "department", multi: true, values: [{ value: "eng" }] },
+      // A comma join cannot be written by the suggestion URL, so it is offered one value at a time.
+      { key: "level", role: "level", multi: false, values: [{ value: "a" }, { value: "b" }] },
+    ]);
+    expect(mocks.llm).not.toHaveBeenCalled();
+    expect(mocks.run).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a recipe without search", record()],
+    ["no recipe", null],
+    ["another listing path", record({ recipe: searchRecipe })],
+  ])("offers nothing for %s", async (_name, stored) => {
+    mocks.get.mockResolvedValue(stored);
+    const url =
+      _name === "another listing path"
+        ? "https://example.com/other"
+        : "https://example.com/careers";
+    expect(await adapter.discoverSearchFacets?.({ careersUrl: url })).toEqual([]);
+  });
+});
+
+describe("careers-site control roles", () => {
+  it("names each control's role and lists keyword before location on every board", async () => {
+    const roles: Recipe = {
+      ...recipe,
+      version: 2,
+      search: {
+        url: "https://example.com/careers",
+        params: [
+          {
+            key: "loc",
+            input: { kind: "choice", options: [{ value: "tor" }] },
+            encoding: "single",
+          },
+          { key: "fwp_search", input: { kind: "text" }, encoding: "single" },
+          { key: "lvl", role: "level", input: { kind: "text" }, encoding: "single" },
+          { key: "zzz", input: { kind: "text" }, encoding: "single" },
+        ],
+        pagination: { kind: "none" },
+        maxPages: 1,
+        render: false,
+      },
+    };
+    mocks.get.mockResolvedValue(record({ recipe: roles }));
+    const api = await import("./careers-site");
+    const result = await api.getCareersSiteSearchControls("https://example.com/careers");
+    expect(result.status === "ready" && result.controls.map((c) => [c.key, c.role])).toEqual([
+      ["fwp_search", "keyword"],
+      ["loc", "location"],
+      ["lvl", "level"],
+      ["zzz", undefined],
+    ]);
+    // Facets carry the same roles, so Suggest Filters sees the same vocabulary.
+    expect(
+      (await adapter.discoverSearchFacets?.({ careersUrl: "https://example.com/careers" }))?.map(
+        (facet) => facet.role,
+      ),
+    ).toEqual(["location", "keyword", "level", undefined]);
+  });
+});
+
+describe("careers-site rescan guards and filter carry-over", () => {
+  const pageRecipe: Recipe = {
+    ...recipe,
+    listing: {
+      kind: "page",
+      url: "https://example.com/careers",
+      render: false,
+      pagination: { kind: "none" },
+      maxPages: 1,
+    },
+  };
+  const withSearch: Recipe = {
+    ...recipe,
+    version: 2,
+    search: {
+      url: "https://example.com/careers",
+      params: [{ key: "q", input: { kind: "text" }, encoding: "single" }],
+      pagination: { kind: "none" },
+      maxPages: 1,
+      render: true,
+    },
+  };
+  let api: typeof import("./careers-site");
+  beforeEach(async () => {
+    api = await import("./careers-site");
+  });
+
+  it("will not relearn a host that already has verified search", async () => {
+    mocks.get.mockResolvedValue(record({ recipe: withSearch }));
+    await expect(api.rescanCareersSite("https://example.com/careers")).rejects.toThrow(
+      "cannot be re-learned",
+    );
+    expect(mocks.learn).not.toHaveBeenCalled();
+  });
+
+  it("will not let a different page of a page-listing host replace its recipe", async () => {
+    mocks.get.mockResolvedValue(record({ recipe: pageRecipe }));
+    expect(await api.getCareersSiteSearchControls("https://example.com/careers/interns")).toEqual({
+      status: "unsupported",
+    });
+    await expect(api.rescanCareersSite("https://example.com/careers/interns")).rejects.toThrow();
+    expect(await api.getCareersSiteSearchControls("https://example.com/careers")).toEqual({
+      status: "rescan",
+    });
+    expect(mocks.learn).not.toHaveBeenCalled();
+  });
+
+  it("repeats a rescan of the same host only after the cooldown", async () => {
+    mocks.get.mockResolvedValue(record());
+    mocks.learn.mockResolvedValue(recipe);
+    await api.rescanCareersSite("https://example.com/careers");
+    await vi.waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+    await expect(api.rescanCareersSite("https://example.com/careers")).rejects.toThrow("recently");
+    expect(mocks.learn).toHaveBeenCalledTimes(1);
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 7 * 60 * 60_000);
+    await api.rescanCareersSite("https://example.com/careers");
+    await vi.waitFor(() => expect(mocks.learn).toHaveBeenCalledTimes(2));
+  });
+
+  it("keeps the user's other filters when only verified controls change", async () => {
+    mocks.get.mockResolvedValue(record({ recipe: withSearch }));
+    const result = await api.applyCareersSiteSearch(
+      "https://example.com/careers?team=Eng&team=Ops&q=old&utm_source=x",
+      { q: ["nurse"] },
+    );
+    const url = new URL(result.careersUrl);
+    expect(url.searchParams.get("q")).toBe("nurse");
+    expect(url.searchParams.getAll("team")).toEqual(["Eng", "Ops"]);
+    expect(url.searchParams.has("utm_source")).toBe(false);
+  });
+
+  it("caps rendered-listing postings only for the page the search was learned on", async () => {
+    mocks.get.mockResolvedValue(record({ recipe: withSearch }));
+    await adapter.fetchJobs({
+      source: { ...source, careersUrl: "https://example.com/careers/interns?q=x" },
+    });
+    expect(mocks.run).toHaveBeenLastCalledWith(withSearch, expect.objectContaining({ limit: 60 }));
+    await adapter.fetchJobs({
+      source: { ...source, careersUrl: "https://example.com/careers?q=x" },
+    });
+    expect(mocks.run).toHaveBeenLastCalledWith(withSearch, expect.objectContaining({ limit: 10 }));
+  });
+});

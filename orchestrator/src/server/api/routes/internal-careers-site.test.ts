@@ -93,6 +93,48 @@ describe("internal careers-site crawling", () => {
     expect(mocks.learn).not.toHaveBeenCalled();
   });
 
+  it("accepts a v2 recipe with search and field rules and returns the extra job fields", async () => {
+    const v2: Recipe = {
+      ...recipe,
+      version: 2,
+      search: {
+        url: "https://example.com/careers",
+        params: [{ key: "q", input: { kind: "text" }, encoding: "single" }],
+        pagination: { kind: "query", param: "page", start: 1, step: 1 },
+        maxPages: 3,
+        render: false,
+      },
+      detail: {
+        kind: "jsonld",
+        fields: { salary: { kind: "jobPosting", property: "baseSalary" } },
+      },
+    };
+    const withFields = { ...job, salary: "USD 90,000 per year", deadline: null };
+    mocks.run.mockResolvedValue([withFields]);
+
+    const response = await post("run", {
+      recipe: v2,
+      sourceUrl: "https://example.com/careers?q=nurse",
+      limit: 10,
+      budgetMs: 20_000,
+    });
+
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      data: { kind: "jobs", jobs: [withFields] },
+    });
+    expect(mocks.run).toHaveBeenCalledWith(v2, expect.anything());
+    // Rejects a search that tries to smuggle in an unbounded control list.
+    const tooMany = {
+      ...v2,
+      search: {
+        ...v2.search,
+        params: Array.from({ length: 13 }, (_, i) => ({ ...v2.search?.params[0], key: `k${i}` })),
+      },
+    };
+    expect((await post("run", { recipe: tooMany, limit: 10, budgetMs: 1000 })).status).toBe(400);
+  });
+
   it("runs a recipe and returns the crawled jobs", async () => {
     mocks.run.mockResolvedValue([job]);
 

@@ -420,6 +420,25 @@ describe("Watchlist API routes", () => {
       expect(emptyBody.data.states).toEqual([]);
     });
 
+    it("unignores a careers-site posting under every filter of that host, and nothing else", async () => {
+      const filtered = (letter: string) => `careers_site:example.com?${letter.repeat(24)}`;
+      for (const source of [
+        filtered("a"),
+        "careers_site:example.com",
+        "careers_site:other.example",
+        "workday:example.com?x",
+      ]) {
+        await fetch(stateUrl(baseUrl, source, "job-1"), { method: "PUT" });
+      }
+      // Viewing the board under another filter, the user clears the ignore.
+      await fetch(stateUrl(baseUrl, filtered("b"), "job-1"), { method: "DELETE" });
+
+      const remaining = await fetch(`${baseUrl}/api/watchlist/states`)
+        .then((res) => res.json())
+        .then((body) => body.data.states.map((state: { source: string }) => state.source).sort());
+      expect(remaining).toEqual(["careers_site:other.example", "workday:example.com?x"]);
+    });
+
     it("records per-user watchlist checks and returns new-since-last-check deltas", async () => {
       const firstRes = await fetch(checksUrl(baseUrl), {
         method: "POST",

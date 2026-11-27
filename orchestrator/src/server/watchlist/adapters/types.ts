@@ -8,6 +8,7 @@ import type {
   WatchlistSourceBrandingResponse,
   WatchlistSourceTypeDescriptor,
 } from "@shared/types";
+import type { Facets } from "../autofilter/types";
 
 export interface WatchlistCatalogSourceAdapter {
   sourceType: WatchedSourceType;
@@ -37,6 +38,11 @@ export interface WatchlistCatalogSourceAdapter {
     jobRef: string;
     signal?: AbortSignal;
   }): Promise<WatchlistAdapterImportDraftResult>;
+  /**
+   * Public filter controls this source can offer beyond what facet discovery scrapes, such as a
+   * learned keyword box. Read from public data only; must not make a model call.
+   */
+  discoverSearchFacets?(input: { careersUrl: string }): Promise<Facets["params"]>;
   fetchBranding?(input: {
     source: Pick<WatchlistSelectedSource, "careersUrl" | "sourceType">;
     signal?: AbortSignal;

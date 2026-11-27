@@ -1,3 +1,5 @@
+import type { WatchlistControlRole } from "@shared/types";
+
 export interface FilterIntent {
   titles: string[];
   country: string;
@@ -14,6 +16,8 @@ export interface Facets {
     multi: boolean;
     values?: Array<{ value: string; count?: number }>;
     freeText?: true;
+    /** What this filter means on any board; see WATCHLIST_CONTROL_ROLES. */
+    role?: WatchlistControlRole;
   }>;
 }
 

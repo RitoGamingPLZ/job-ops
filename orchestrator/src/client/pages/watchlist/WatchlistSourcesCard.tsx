@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableDropdown } from "@/components/ui/searchable-dropdown";
 import { cn } from "@/lib/utils";
 import { CompanyRatingBadges } from "./CompanyRatingBadges";
+import { SearchFiltersPanel } from "./SearchFiltersPanel";
 import { SuggestFiltersPanel } from "./SuggestFiltersPanel";
 import type { WatchlistSourceDraftCardProps } from "./types";
 import {
@@ -322,6 +323,24 @@ export function WatchlistSourcesCard({
                 const isEmpty = !careersUrl.trim();
                 const showEditor = isEmpty || (draft.isCustom && sourceStatus === "unsaved");
                 const companyLogoUrl = logoDataUrls[careersUrl.trim()] ?? null;
+                const filterSourceType = draft.isCustom
+                  ? draft.sourceType
+                  : (selectedSource?.sourceType ?? draft.sourceType);
+                // Both filter panels hand back a source URL; saving sources applies it as usual.
+                const useFilterUrl = (nextUrl: string) => {
+                  onSourceMethodSelected({
+                    method: "custom_url",
+                    sourceType: filterSourceType,
+                    careersUrl: nextUrl,
+                  });
+                  onUpdateDraft(index, (current) => ({
+                    ...current,
+                    isCustom: true,
+                    sourceType: filterSourceType,
+                    catalogSourceId: null,
+                    customUrl: nextUrl,
+                  }));
+                };
 
                 return (
                   <article
@@ -536,33 +555,16 @@ export function WatchlistSourcesCard({
                         ) : null}
                       </div>
                     )}
-                    <div className="mt-auto pt-0.5">
+                    <div className="mt-auto space-y-1.5 pt-0.5">
+                      {filterSourceType === "careers_site" && careersUrl.trim() ? (
+                        <SearchFiltersPanel careersUrl={careersUrl} onUse={useFilterUrl} />
+                      ) : null}
                       <SuggestFiltersPanel
-                        sourceType={
-                          draft.isCustom
-                            ? draft.sourceType
-                            : (selectedSource?.sourceType ?? draft.sourceType)
-                        }
+                        sourceType={filterSourceType}
                         careersUrl={careersUrl}
                         label={label}
                         description={draft.description}
-                        onUse={(suggestedUrl) => {
-                          const sourceType = draft.isCustom
-                            ? draft.sourceType
-                            : (selectedSource?.sourceType ?? draft.sourceType);
-                          onSourceMethodSelected({
-                            method: "custom_url",
-                            sourceType,
-                            careersUrl: suggestedUrl,
-                          });
-                          onUpdateDraft(index, (current) => ({
-                            ...current,
-                            isCustom: true,
-                            sourceType,
-                            catalogSourceId: null,
-                            customUrl: suggestedUrl,
-                          }));
-                        }}
+                        onUse={useFilterUrl}
                       />
                     </div>
                   </article>

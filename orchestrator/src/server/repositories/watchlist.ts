@@ -8,6 +8,7 @@ import type {
 } from "@shared/types";
 import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import { db, schema } from "../db/index";
+import { watchlistStateSource } from "../watchlist/source-identity";
 import { getRequiredUserScope, requiredUserScopeFilter } from "../tenancy/private-scope";
 import { chunk, inListChunkSize, insertRowsPerStatement } from "../utils/sql-chunks";
 
@@ -197,15 +198,25 @@ export async function clearWatchlistJobState(input: {
   source: string;
   sourceJobId: string;
 }): Promise<number> {
-  const result = await db
-    .delete(watchlistJobStates)
+  // A careers-site posting ignored under one filter is shown as ignored under every filter of
+  // that host (see watchlistStateSource), so clearing it must remove it from all of them.
+  const family = watchlistStateSource(input.source);
+  const rows = await db
+    .select({ id: watchlistJobStates.id, source: watchlistJobStates.source })
+    .from(watchlistJobStates)
     .where(
       and(
         watchlistScopeFilter(watchlistJobStates),
-        eq(watchlistJobStates.source, input.source),
         eq(watchlistJobStates.sourceJobId, input.sourceJobId),
       ),
     );
+  const ids = rows
+    .filter((row) => watchlistStateSource(row.source) === family)
+    .map((row) => row.id);
+  if (!ids.length) return 0;
+  const result = await db
+    .delete(watchlistJobStates)
+    .where(and(watchlistScopeFilter(watchlistJobStates), inArray(watchlistJobStates.id, ids)));
 
   return result.changes;
 }

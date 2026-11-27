@@ -429,6 +429,8 @@ export interface WatchlistSourceGroup {
 }
 
 export const MAX_WATCHLIST_SOURCES = 50;
+/** Watchlist sources one search run reads per user; the saved-source limit is higher, the extras wait. */
+export const MAX_WATCHLIST_SOURCES_PER_SEARCH = 40;
 
 export interface WatchlistSelectedSource {
   id: string;
@@ -452,6 +454,49 @@ export interface WatchlistSuggestedFilterPlan {
   sampleTitles: string[];
   reused?: boolean;
 }
+
+/**
+ * What a filter means on any board, whatever that board calls its parameter (`q`, `query`,
+ * `fwp_search`; `loc`, `offices`; `commitment`, `timeType`). Lets the suggester, the filter panel
+ * and the user's own search terms line up across boards. Order is the panel's display order.
+ */
+export const WATCHLIST_CONTROL_ROLES = [
+  "keyword",
+  "location",
+  "workplace",
+  "employmentType",
+  "department",
+  "level",
+] as const;
+export type WatchlistControlRole = (typeof WATCHLIST_CONTROL_ROLES)[number];
+export const WATCHLIST_CONTROL_ROLE_LABELS: Record<WatchlistControlRole, string> = {
+  keyword: "Keyword",
+  location: "Location",
+  workplace: "Workplace",
+  employmentType: "Job type",
+  department: "Team",
+  level: "Level",
+};
+
+/** One verified search control of a custom careers site, learned from its public listing. */
+export interface WatchlistSearchControl {
+  key: string;
+  label?: string;
+  role?: WatchlistControlRole;
+  input: { kind: "text" } | { kind: "choice"; options: Array<{ value: string; label?: string }> };
+  /** Whether several choices may be selected at once. */
+  multiple: boolean;
+}
+
+export type WatchlistSearchControlsResponse =
+  | {
+      status: "ready";
+      controls: WatchlistSearchControl[];
+      /** What the source URL already carries, per control key. */
+      values: Record<string, string[]>;
+    }
+  // `learning`: a recipe is being learned; `rescan`: none with search controls exists yet.
+  | { status: "learning" | "rescan" | "unsupported" };
 
 export interface WatchlistSourceScanInput {
   careersUrl: string;
