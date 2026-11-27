@@ -328,12 +328,25 @@ export class AppStore extends DurableObject<Env> {
     } catch (error) {
       // A caller abort (its own timeout) is the caller's to handle, not a container outage.
       if (callerSignal?.aborted) throw callerSignal.reason ?? error;
+      // Say what failed. This text reaches the scan status shown to users, so only the error
+      // class and a short clipped message, never a stack or request body.
+      const detail =
+        error instanceof Error
+          ? `${error.name}: ${error.message}`.replace(/\s+/g, " ").slice(0, 140)
+          : "";
+      console.error(
+        JSON.stringify({
+          msg: "careers-site-container-call-failed",
+          action,
+          detail: detail || String(error).slice(0, 140),
+        }),
+      );
       return {
         kind: "unavailable",
         message:
           error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")
             ? "The careers-site browser timed out. Check again in a minute."
-            : "The careers-site browser could not be reached.",
+            : `The careers-site browser could not be reached${detail ? ` (${detail})` : ""}.`,
       };
     }
   }
