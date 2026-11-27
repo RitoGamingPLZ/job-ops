@@ -330,10 +330,16 @@ export class AppStore extends DurableObject<Env> {
       if (callerSignal?.aborted) throw callerSignal.reason ?? error;
       // Say what failed. This text reaches the scan status shown to users, so only the error
       // class and a short clipped message, never a stack or request body.
-      const detail =
-        error instanceof Error
-          ? `${error.name}: ${error.message}`.replace(/\s+/g, " ").slice(0, 140)
-          : "";
+      // Errors that cross a Durable Object boundary are often not `Error` instances, so read the
+      // fields rather than rely on `instanceof`.
+      const thrown = error as { name?: unknown; message?: unknown } | null;
+      const detail = (
+        error instanceof Error || typeof thrown?.message === "string"
+          ? `${typeof thrown?.name === "string" ? thrown.name : "Error"}: ${thrown?.message}`
+          : String(error)
+      )
+        .replace(/\s+/g, " ")
+        .slice(0, 140);
       console.error(
         JSON.stringify({
           msg: "careers-site-container-call-failed",
