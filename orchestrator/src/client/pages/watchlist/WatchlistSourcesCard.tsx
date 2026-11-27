@@ -123,6 +123,8 @@ export function WatchlistSourcesCard({
   onSave,
 }: WatchlistSourceDraftCardProps) {
   const [logoDataUrls, setLogoDataUrls] = useState<Record<string, string | null>>({});
+  // Per draft: has the custom site's filter scan reached an answer (Suggest filters waits on it).
+  const [filterPlanDone, setFilterPlanDone] = useState<Record<string, boolean>>({});
   const sourceDropdownOptions = useMemo(
     () => getSourceDropdownOptions(catalogSources, sourceTypes),
     [catalogSources, sourceTypes],
@@ -327,6 +329,10 @@ export function WatchlistSourcesCard({
                   ? draft.sourceType
                   : (selectedSource?.sourceType ?? draft.sourceType);
                 // Both filter panels hand back a source URL; saving sources applies it as usual.
+                const waitingForFilterPlan =
+                  filterSourceType === "careers_site" &&
+                  Boolean(careersUrl.trim()) &&
+                  !(filterPlanDone[draft.id] ?? false);
                 const useFilterUrl = (nextUrl: string) => {
                   onSourceMethodSelected({
                     method: "custom_url",
@@ -557,7 +563,19 @@ export function WatchlistSourcesCard({
                     )}
                     <div className="mt-auto space-y-1.5 pt-0.5">
                       {filterSourceType === "careers_site" && careersUrl.trim() ? (
-                        <SearchFiltersPanel careersUrl={careersUrl} onUse={useFilterUrl} />
+                        <SearchFiltersPanel
+                          careersUrl={careersUrl}
+                          onUse={useFilterUrl}
+                          // A saved source is scanned by itself; an unsaved URL waits for Save.
+                          autoScan={sourceStatus !== "unsaved"}
+                          onPlanDone={(done) =>
+                            setFilterPlanDone((current) =>
+                              current[draft.id] === done
+                                ? current
+                                : { ...current, [draft.id]: done },
+                            )
+                          }
+                        />
                       ) : null}
                       <SuggestFiltersPanel
                         sourceType={filterSourceType}
@@ -565,6 +583,9 @@ export function WatchlistSourcesCard({
                         label={label}
                         description={draft.description}
                         onUse={useFilterUrl}
+                        // Suggestions build on the site's filter plan, so wait until the scan has an answer.
+                        disabled={waitingForFilterPlan}
+                        disabledHint="Available once this site's search filters are ready."
                       />
                     </div>
                   </article>

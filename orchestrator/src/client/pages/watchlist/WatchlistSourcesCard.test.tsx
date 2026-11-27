@@ -27,26 +27,47 @@ vi.mock("./SuggestFiltersPanel", () => ({
   SuggestFiltersPanel: ({
     onUse,
     careersUrl,
+    disabled,
+    disabledHint,
   }: {
     onUse: (url: string) => void;
     careersUrl: string;
+    disabled?: boolean;
+    disabledHint?: string;
   }) => (
-    <button type="button" onClick={() => onUse(`${careersUrl}?team=Engineering`)}>
-      Use this URL
-    </button>
+    <>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onUse(`${careersUrl}?team=Engineering`)}
+      >
+        Use this URL
+      </button>
+      {disabled ? <span>{disabledHint}</span> : null}
+    </>
   ),
 }));
 vi.mock("./SearchFiltersPanel", () => ({
   SearchFiltersPanel: ({
     onUse,
     careersUrl,
+    autoScan,
+    onPlanDone,
   }: {
     onUse: (url: string) => void;
     careersUrl: string;
+    autoScan?: boolean;
+    onPlanDone?: (done: boolean) => void;
   }) => (
-    <button type="button" onClick={() => onUse(`${careersUrl}?q=nurse`)}>
-      Apply search filters
-    </button>
+    <>
+      <button type="button" onClick={() => onUse(`${careersUrl}?q=nurse`)}>
+        Apply search filters
+      </button>
+      <span>{autoScan ? "auto-scan on" : "auto-scan off"}</span>
+      <button type="button" onClick={() => onPlanDone?.(true)}>
+        Finish scan
+      </button>
+    </>
   ),
 }));
 
@@ -380,5 +401,54 @@ describe("WatchlistSourcesCard filter suggestions", () => {
     expect(onAddGroup).toHaveBeenCalledWith(props.groups?.[0]);
     fireEvent.click(screen.getByRole("button", { name: "Paste career site URL" }));
     expect(onAddSource).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("WatchlistSourcesCard filter plan gating", () => {
+  const base = (status: "unsaved" | "watching"): WatchlistSourceDraftCardProps => ({
+    sourceDrafts: [
+      {
+        id: "source-1",
+        sourceType: "careers_site",
+        isCustom: true,
+        catalogSourceId: null,
+        customUrl: "https://careers.example.com/openings",
+      },
+    ],
+    sourceStatusByDraftId: { "source-1": status },
+    catalogSources: [],
+    sourceTypes: [],
+    formattedLastCheckedAt: null,
+    formattedPreviousLastCheckedAt: null,
+    newJobsCount: 0,
+    hasUnsavedChanges: false,
+    isSaving: false,
+    onAddSource: vi.fn(),
+    onRemoveSource: vi.fn(),
+    onUpdateDraft: vi.fn(),
+    onSourceMethodSelected: vi.fn(),
+    onSourceSearchNoResults: vi.fn(),
+    onSave: vi.fn(),
+  });
+
+  it("keeps Suggest filters off until the site's filter scan has an answer", () => {
+    render(<WatchlistSourcesCard {...base("watching")} />);
+    expect(screen.getByRole("button", { name: "Use this URL" })).toBeDisabled();
+    expect(
+      screen.getByText("Available once this site's search filters are ready."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Finish scan" }));
+    expect(screen.getByRole("button", { name: "Use this URL" })).toBeEnabled();
+    expect(
+      screen.queryByText("Available once this site's search filters are ready."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("scans automatically only for a saved source", () => {
+    const { unmount } = render(<WatchlistSourcesCard {...base("watching")} />);
+    expect(screen.getByText("auto-scan on")).toBeInTheDocument();
+    unmount();
+    render(<WatchlistSourcesCard {...base("unsaved")} />);
+    expect(screen.getByText("auto-scan off")).toBeInTheDocument();
   });
 });
