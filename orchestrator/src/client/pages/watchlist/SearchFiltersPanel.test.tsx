@@ -140,3 +140,30 @@ describe("SearchFiltersPanel", () => {
     await waitFor(() => expect(getWatchlistSearchControls).toHaveBeenCalledTimes(2));
   });
 });
+
+describe("SearchFiltersPanel scan outcomes", () => {
+  it("says so when a finished scan found no filters, with no button to repeat it", async () => {
+    vi.mocked(getWatchlistSearchControls).mockResolvedValue({
+      status: "none",
+      lastScan: { outcome: "none" },
+    });
+    render(<SearchFiltersPanel careersUrl={careersUrl} onUse={vi.fn()} />);
+    expect(
+      await screen.findByText("No search filters were found for this site."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Find search filters" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [{ outcome: "unavailable" as const, reason: "starting" }, /still starting/],
+    [
+      { outcome: "failed" as const, reason: "Recipe found no jobs" },
+      /did not finish: Recipe found no jobs/,
+    ],
+  ])("explains an unfinished scan and keeps the button", async (lastScan, message) => {
+    vi.mocked(getWatchlistSearchControls).mockResolvedValue({ status: "rescan", lastScan });
+    render(<SearchFiltersPanel careersUrl={careersUrl} onUse={vi.fn()} />);
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Find search filters" })).toBeInTheDocument();
+  });
+});

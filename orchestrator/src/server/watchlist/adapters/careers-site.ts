@@ -41,7 +41,11 @@ import {
   SiteBlockedError,
   type SiteRecipeRecord,
 } from "@server/watchlist/careers-site/types";
-import type { WatchlistSearchControlsResponse, WatchlistSelectedSource } from "@shared/types";
+import type {
+  WatchlistScanOutcome,
+  WatchlistSearchControlsResponse,
+  WatchlistSelectedSource,
+} from "@shared/types";
 import { convert } from "html-to-text";
 import { z } from "zod";
 import { greenhouseWatchlistAdapter } from "./greenhouse";
@@ -173,6 +177,17 @@ async function learn(host: string, url: string, signal: AbortSignal): Promise<Re
   if (result.kind === "failed") throw new RecipeLearningError(result.message);
   return result.recipe;
 }
+// Explicitly global and public: how the last background scan of a host ended. No tenant data; the
+// reasons are the learner's own bounded messages, never page text.
+const scans = new Map<string, WatchlistScanOutcome & { at: number }>();
+function recordScan(host: string, outcome: WatchlistScanOutcome["outcome"], reason?: string) {
+  setBoundedMapEntry(scans, host, { at: Date.now(), outcome, ...(reason ? { reason } : {}) }, 500);
+}
+function lastScan(host: string): WatchlistScanOutcome | undefined {
+  const scan = scans.get(host);
+  return scan && { outcome: scan.outcome, ...(scan.reason ? { reason: scan.reason } : {}) };
+}
+
 /** Start (or join) background learning for a host; throws only while a failed learn cools down. */
 function ensureLearning(host: string, url: string): void {
   const plainUrl = new URL(url);
@@ -188,13 +203,26 @@ function ensureLearning(host: string, url: string): void {
         const recipe = await learn(host, plainUrl.href, createBudgetSignal(undefined, 180_000));
         await saveSiteRecipe(host, recipe);
         failedLearns.delete(host);
+        recordScan(host, recipe.search ? "found" : "none");
       } catch (error) {
-        if (error instanceof SiteBlockedError) await markSiteBlocked(host, error.reason);
-        // A browser that is still starting says nothing about this site; do not start a cooldown.
-        else if (!(error instanceof RemoteCareersSiteUnavailableError)) {
+        if (error instanceof SiteBlockedError) {
+          await markSiteBlocked(host, error.reason);
+          recordScan(host, "blocked", error.reason);
+        } else if (error instanceof RemoteCareersSiteUnavailableError) {
+          // A browser that is still starting says nothing about this site: no cooldown, and a
+          // later scan is allowed straight away.
+          recordScan(host, "unavailable", error.message);
+        } else {
           const now = Date.now();
           pruneExpiredTimestamps(failedLearns, FAILED_LEARN_COOLDOWN_MS, now);
           failedLearns.set(host, now);
+          recordScan(
+            host,
+            "failed",
+            error instanceof RecipeLearningError
+              ? error.message
+              : "Learning failed outside recipe validation",
+          );
         }
         throw error;
       }
@@ -452,7 +480,13 @@ export async function getCareersSiteSearchControls(
     };
   }
   if (learning.has(url.hostname)) return { status: "learning" };
-  return canRescan(stored, url) ? { status: "rescan" } : { status: "unsupported" };
+  if (!canRescan(stored, url)) return { status: "unsupported" };
+  const scan = lastScan(url.hostname);
+  // A scan that finished and found nothing is an answer; offering the button again would only
+  // repeat it. A failed or unfinished one says why, so it can be retried or reported.
+  if (scan?.outcome === "none" && scannedRecently(url.hostname))
+    return { status: "none", lastScan: scan };
+  return { status: "rescan", ...(scan ? { lastScan: scan } : {}) };
 }
 
 /** Build the source URL for the user's own filter values, validated against the verified controls. */
@@ -467,9 +501,17 @@ export async function applyCareersSiteSearch(
   return { careersUrl: careersUrl(buildSearchUrl(search, values, careersUrl(value).href)).href };
 }
 
-/** A rescan of the same host is not repeated within this long, whether or not it found anything. */
+/** A host whose scan finished is not scanned again within this long, whether or not it found anything. */
 const RESCAN_COOLDOWN_MS = 6 * 60 * 60_000;
-const rescans = new Map<string, number>();
+/** Only a scan that really ran counts: a browser that was still starting did not look at the site. */
+function scannedRecently(host: string): boolean {
+  const scan = scans.get(host);
+  return (
+    scan !== undefined &&
+    scan.outcome !== "unavailable" &&
+    Date.now() - scan.at < RESCAN_COOLDOWN_MS
+  );
+}
 
 /**
  * Whether this page may trigger a relearn. The recipe is shared by every user of the host, so a
@@ -493,9 +535,7 @@ export async function rescanCareersSite(value: string): Promise<void> {
   if (stored?.blockedReason && blockIsActive(stored)) throw blocked(url.hostname);
   if (!canRescan(stored, url))
     throw unprocessableEntity("This site's search filters cannot be re-learned from this page.");
-  const last = rescans.get(url.hostname);
-  if (last !== undefined && Date.now() - last < RESCAN_COOLDOWN_MS && !learning.has(url.hostname))
+  if (scannedRecently(url.hostname) && !learning.has(url.hostname))
     throw serviceUnavailable("This site was scanned recently. Try again later.");
   ensureLearning(url.hostname, url.href);
-  setBoundedMapEntry(rescans, url.hostname, Date.now(), 500);
 }

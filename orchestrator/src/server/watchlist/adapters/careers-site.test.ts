@@ -1089,12 +1089,63 @@ describe("careers-site rescan guards and filter carry-over", () => {
     mocks.get.mockResolvedValue(record());
     mocks.learn.mockResolvedValue(recipe);
     await api.rescanCareersSite("https://example.com/careers");
-    await vi.waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+    await vi.waitFor(async () =>
+      expect(await api.getCareersSiteSearchControls("https://example.com/careers")).not.toEqual({
+        status: "learning",
+      }),
+    );
     await expect(api.rescanCareersSite("https://example.com/careers")).rejects.toThrow("recently");
     expect(mocks.learn).toHaveBeenCalledTimes(1);
     vi.spyOn(Date, "now").mockReturnValue(Date.now() + 7 * 60 * 60_000);
     await api.rescanCareersSite("https://example.com/careers");
     await vi.waitFor(() => expect(mocks.learn).toHaveBeenCalledTimes(2));
+  });
+
+  const settle = (url: string) =>
+    vi.waitFor(async () =>
+      expect((await api.getCareersSiteSearchControls(url)).status).not.toBe("learning"),
+    );
+
+  it("reports a finished scan that found no controls instead of offering the button again", async () => {
+    mocks.get.mockResolvedValue(record());
+    mocks.learn.mockResolvedValue(recipe);
+    await api.rescanCareersSite("https://example.com/careers");
+    await settle("https://example.com/careers");
+    expect(await api.getCareersSiteSearchControls("https://example.com/careers")).toEqual({
+      status: "none",
+      lastScan: { outcome: "none" },
+    });
+  });
+
+  it("does not spend the cooldown when the browser was still starting", async () => {
+    const { RemoteCareersSiteUnavailableError } =
+      await import("@server/watchlist/careers-site/remote");
+    mocks.get.mockResolvedValue(record());
+    mocks.learn.mockRejectedValueOnce(new RemoteCareersSiteUnavailableError("starting"));
+    await api.rescanCareersSite("https://example.com/careers");
+    await settle("https://example.com/careers");
+    expect(await api.getCareersSiteSearchControls("https://example.com/careers")).toEqual({
+      status: "rescan",
+      lastScan: { outcome: "unavailable", reason: "starting" },
+    });
+    // The very next attempt is allowed; nothing was learned about the site.
+    mocks.learn.mockResolvedValue(recipe);
+    await api.rescanCareersSite("https://example.com/careers");
+    await vi.waitFor(() => expect(mocks.learn).toHaveBeenCalledTimes(2));
+  });
+
+  it("says why a scan failed, and holds off a repeat after a real failure", async () => {
+    const { RecipeLearningError } = await import("@server/watchlist/careers-site/learn");
+    mocks.get.mockResolvedValue(record());
+    mocks.learn.mockRejectedValue(new RecipeLearningError("Recipe found no jobs"));
+    await api.rescanCareersSite("https://example.com/careers");
+    await settle("https://example.com/careers");
+    expect(await api.getCareersSiteSearchControls("https://example.com/careers")).toEqual({
+      status: "rescan",
+      lastScan: { outcome: "failed", reason: "Recipe found no jobs" },
+    });
+    await expect(api.rescanCareersSite("https://example.com/careers")).rejects.toThrow();
+    expect(mocks.learn).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the user's other filters when only verified controls change", async () => {
