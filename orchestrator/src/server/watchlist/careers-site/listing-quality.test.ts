@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { jobPathPrefix, postingPattern, readListingHints } from "./listing-quality";
+import {
+  jobPathPrefix,
+  postingPattern,
+  readListingHints,
+  shouldRelearnUnderfitRecipe,
+} from "./listing-quality";
 
 const origin = "https://careers.example.com";
 
@@ -111,5 +116,36 @@ describe("readListingHints", () => {
     expect(read("<a href='/x'>Learn more about benefits</a><button>Apply now</button>").more).toBe(
       false,
     );
+  });
+});
+
+describe("shouldRelearnUnderfitRecipe", () => {
+  const now = Date.parse("2026-11-28T04:00:00.000Z");
+  const relearn = (learnedAt: string, postings: number) =>
+    shouldRelearnUnderfitRecipe({ learnedAt, postings, now });
+
+  it("relearns an old pre-gate recipe that sees too few postings", () => {
+    expect(relearn("2026-11-28T02:21:00.000Z", 1)).toBe(true);
+    expect(relearn("2026-11-07", 4)).toBe(true);
+  });
+
+  it("leaves a recipe alone once it returns enough postings", () => {
+    expect(relearn("2026-11-28T02:21:00.000Z", 5)).toBe(false);
+  });
+
+  it("leaves a recipe learned after the gate alone, however few postings it returns", () => {
+    expect(relearn("2026-11-28T03:16:00.000Z", 1)).toBe(false);
+  });
+
+  it("does not relearn a recipe that was only just replaced, since a cached crawl can be stale", () => {
+    const learnedAt = "2026-11-28T03:12:00.000Z"; // before the gate cutoff
+    const at = (time: string) =>
+      shouldRelearnUnderfitRecipe({ learnedAt, postings: 1, now: Date.parse(time) });
+    expect(at("2026-11-28T03:14:00.000Z")).toBe(false); // two minutes after it was saved
+    expect(at("2026-11-28T03:23:00.000Z")).toBe(true); // more than ten minutes after
+  });
+
+  it("ignores a recipe whose learned time cannot be read", () => {
+    expect(relearn("not a date", 1)).toBe(false);
   });
 });
