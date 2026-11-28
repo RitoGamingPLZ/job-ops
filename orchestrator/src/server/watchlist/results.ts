@@ -5,6 +5,8 @@ import * as watchlistRepo from "@server/repositories/watchlist";
 import { asyncPool } from "@server/utils/async-pool";
 import { getWatchlistSourceAdapter, listWatchlistSourceAdapters } from "@server/watchlist/adapters";
 import { watchlistStateSource } from "./source-identity";
+import { CareersWorkPending } from "./careers-site/scan-task";
+import { setTimeout as delay } from "node:timers/promises";
 import type {
   JobListItem,
   WatchlistJobResult,
@@ -19,8 +21,14 @@ const WATCHLIST_SOURCE_CONCURRENCY = 5;
 
 type StoredWatchlistJob = Omit<WatchlistJobResult, "rowState" | "workspaceJob">;
 type StoredWatchlistPayload =
-  | { status: "success"; jobs: StoredWatchlistJob[]; total: number; fetched: number }
-  | { status: "error"; error: string };
+  | {
+      status: "success";
+      jobs: StoredWatchlistJob[];
+      total: number;
+      fetched: number;
+      pending?: boolean;
+    }
+  | { status: "error"; error: string; pending?: boolean };
 interface WatchlistResultEntry {
   payload: StoredWatchlistPayload;
   checkedAt: string;
@@ -86,6 +94,8 @@ function parseStoredEntry(
 /** Fetches the given sources live, records the check, and remembers each source's outcome. */
 async function fetchAndStoreWatchlistSources(
   sources: WatchlistSelectedSource[],
+  previous = new Map<string, WatchlistResultEntry>(),
+  useLastCrawl = false,
 ): Promise<Map<string, WatchlistResultEntry>> {
   const entries = new Map<string, WatchlistResultEntry>();
   if (sources.length === 0) return entries;
@@ -93,7 +103,7 @@ async function fetchAndStoreWatchlistSources(
   const fetchedSources = await asyncPool({
     items: sources,
     concurrency: WATCHLIST_SOURCE_CONCURRENCY,
-    task: fetchWatchlistSource,
+    task: (source) => fetchWatchlistSource(source, useLastCrawl),
   });
   const checksBySource = new Map<string, Set<string>>();
 
@@ -106,12 +116,15 @@ async function fetchAndStoreWatchlistSources(
     }
   }
 
-  const check = await watchlistRepo.recordWatchlistCheck({
-    checks: Array.from(checksBySource, ([source, sourceJobIds]) => ({
-      source,
-      sourceJobIds: Array.from(sourceJobIds),
-    })),
-  });
+  const checked = fetchedSources.some((item) => item.status === "success" || !item.pending);
+  const check = checked
+    ? await watchlistRepo.recordWatchlistCheck({
+        checks: Array.from(checksBySource, ([source, sourceJobIds]) => ({
+          source,
+          sourceJobIds: Array.from(sourceJobIds),
+        })),
+      })
+    : { jobs: [], checkedAt: new Date().toISOString(), previousLastCheckedAt: null };
   const newJobKeys = new Set(
     check.jobs
       .filter((job) => job.isNewSinceLastCheck)
@@ -119,6 +132,21 @@ async function fetchAndStoreWatchlistSources(
   );
 
   for (const item of fetchedSources) {
+    const key = getWatchlistSourceKey(item.source);
+    if (item.status === "error" && item.pending) {
+      const existing = previous.get(key);
+      entries.set(
+        key,
+        existing
+          ? { ...existing, payload: { ...existing.payload, pending: true } }
+          : {
+              payload: { ...toStoredPayload(item), pending: true },
+              checkedAt: check.checkedAt,
+              previousCheckedAt: null,
+            },
+      );
+      continue;
+    }
     const payload = toStoredPayload(item);
     if (payload.status === "success") {
       payload.jobs = payload.jobs.map((job) => ({
@@ -128,7 +156,7 @@ async function fetchAndStoreWatchlistSources(
         ),
       }));
     }
-    entries.set(getWatchlistSourceKey(item.source), {
+    entries.set(key, {
       payload,
       checkedAt: check.checkedAt,
       previousCheckedAt: check.previousLastCheckedAt,
@@ -167,14 +195,23 @@ async function assembleWatchlistResults(
     entry: entries.get(getWatchlistSourceKey(source)),
   }));
   const latest = sourceEntries.reduce<WatchlistResultEntry | null>(
-    (best, { entry }) => (entry && (!best || entry.checkedAt > best.checkedAt) ? entry : best),
+    (best, { entry }) =>
+      entry &&
+      !(entry.payload.status === "error" && entry.payload.pending) &&
+      (!best || entry.checkedAt > best.checkedAt)
+        ? entry
+        : best,
     null,
   );
+  const pendingSourceIds = sourceEntries
+    .filter(({ entry }) => entry?.payload.pending)
+    .map(({ source }) => source.id);
 
   return {
     checkedAt: latest?.checkedAt ?? null,
     previousLastCheckedAt: latest?.previousCheckedAt ?? null,
     sources: annotateWatchlistSourceResults({ sourceEntries, states, workspaceJobs }),
+    ...(pendingSourceIds.length ? { pendingSourceIds } : {}),
   };
 }
 
@@ -190,10 +227,29 @@ export async function getWatchlistResultsForSources(
     };
   }
 
-  return assembleWatchlistResults(
-    selectedSources,
-    await fetchAndStoreWatchlistSources(selectedSources),
-  );
+  const previous = await listStoredEntries();
+  const entries = await fetchAndStoreWatchlistSources(selectedSources, previous, true);
+  const deadline = Date.now() + 7_500;
+  while (Date.now() < deadline) {
+    const pending = selectedSources.filter(
+      (source) => entries.get(getWatchlistSourceKey(source))?.payload.pending,
+    );
+    if (!pending.length) break;
+    await delay(1_500);
+    for (const [key, entry] of await fetchAndStoreWatchlistSources(pending, entries, true)) {
+      entries.set(key, entry);
+    }
+  }
+  return assembleWatchlistResults(selectedSources, entries);
+}
+
+async function listStoredEntries() {
+  const entries = new Map<string, WatchlistResultEntry>();
+  for (const stored of await watchlistRepo.listWatchlistSourceResults()) {
+    const entry = parseStoredEntry(stored);
+    if (entry) entries.set(stored.sourceKey, entry);
+  }
+  return entries;
 }
 
 /**
@@ -207,19 +263,16 @@ export async function getCurrentWatchlistResults(
   const sources = await listHydratedWatchlistSelectedSources();
   if (sources.length === 0) return getWatchlistResultsForSources([]);
 
-  const entries = new Map<string, WatchlistResultEntry>();
-  for (const stored of await watchlistRepo.listWatchlistSourceResults()) {
-    const entry = parseStoredEntry(stored);
-    if (entry) entries.set(stored.sourceKey, entry);
-  }
+  const entries = await listStoredEntries();
 
   const sourceIds = options.sourceIds?.length ? new Set(options.sourceIds) : null;
   const toFetch = sources.filter((source) =>
     options.refresh
       ? !sourceIds || sourceIds.has(source.id)
-      : !entries.has(getWatchlistSourceKey(source)),
+      : !entries.has(getWatchlistSourceKey(source)) ||
+        entries.get(getWatchlistSourceKey(source))?.payload.pending,
   );
-  for (const [key, entry] of await fetchAndStoreWatchlistSources(toFetch)) {
+  for (const [key, entry] of await fetchAndStoreWatchlistSources(toFetch, entries)) {
     entries.set(key, entry);
   }
 
@@ -240,6 +293,7 @@ export async function getWatchlistSelectedSourceById(
 
 async function fetchWatchlistSource(
   source: WatchlistSelectedSource,
+  useLastCrawl: boolean,
 ): Promise<WatchlistSourceResult> {
   const adapter = getWatchlistSourceAdapter(source.sourceType);
   if (!adapter) {
@@ -252,7 +306,7 @@ async function fetchWatchlistSource(
 
   try {
     const result = await withWatchlistSourceTimeout((signal) =>
-      adapter.fetchJobs({ source, signal }),
+      adapter.fetchJobs({ source, signal, ...(useLastCrawl ? { useLastCrawl: true } : {}) }),
     );
     return {
       status: "success",
@@ -271,6 +325,7 @@ async function fetchWatchlistSource(
       status: "error",
       source,
       error: getErrorMessage(error),
+      ...(error instanceof CareersWorkPending ? { pending: true } : {}),
     };
   }
 }

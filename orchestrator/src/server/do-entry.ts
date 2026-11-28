@@ -50,6 +50,8 @@ export type {
   RemoteContainerExtractorRunner,
 };
 export { handleDurableObjectTaskDone, runPortableMigrations };
+export { executeCareersScan, recordQueuedCareersCrawl } from "./watchlist/adapters/careers-site";
+export { getSiteRecipe } from "./repositories/site-recipes";
 
 /**
  * Runs ordered app SQLite migrations against a Cloudflare Durable Object's storage.

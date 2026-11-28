@@ -27,6 +27,8 @@ export interface WatchlistCatalogSourceAdapter {
   fetchJobs(input: {
     source: WatchlistSelectedSource;
     signal?: AbortSignal;
+    useLastCrawl?: boolean;
+    preview?: boolean;
   }): Promise<WatchlistAdapterJobsResult>;
   fetchJobDetails(input: {
     source: WatchlistSelectedSource;

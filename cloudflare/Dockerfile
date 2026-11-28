@@ -123,6 +123,11 @@ COPY orchestrator ./orchestrator
 # Fail the build rather than ship an image whose renderer exits with MODULE_NOT_FOUND.
 RUN test -f /app/orchestrator/dist/pdf-worker/pdf-worker.mjs \
     || { echo "orchestrator/dist/pdf-worker/pdf-worker.mjs is missing from the build context; run build:pdf-worker and check .dockerignore" >&2; exit 1; }
+
+# The careers-site scanner and crawler start from their own lean bundle (no database, migrations or
+# schedulers), for the same reason: fail the build rather than ship an image that cannot start them.
+RUN test -f /app/orchestrator/dist/careers-worker/careers-worker.mjs \
+    || { echo "orchestrator/dist/careers-worker/careers-worker.mjs is missing from the build context; run build:careers-worker and check .dockerignore" >&2; exit 1; }
 COPY career-boards/bamboohr ./career-boards/bamboohr
 COPY career-boards/greenhouse ./career-boards/greenhouse
 COPY career-boards/workday ./career-boards/workday

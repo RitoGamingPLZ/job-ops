@@ -581,12 +581,14 @@ export type WatchlistSourceResult =
       status: "error";
       source: WatchlistSelectedSource;
       error: string;
+      pending?: boolean;
     };
 
 export interface WatchlistResultsResponse {
   checkedAt: string | null;
   previousLastCheckedAt: string | null;
   sources: WatchlistSourceResult[];
+  pendingSourceIds?: string[];
 }
 
 export interface WatchlistImportDraftInput {

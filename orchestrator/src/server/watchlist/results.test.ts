@@ -11,6 +11,7 @@ import {
   withWatchlistSourceTimeout,
 } from "./results";
 import { makeSelectedSource } from "./testing/fixtures";
+import { CareersWorkPending } from "./careers-site/scan-task";
 
 vi.mock("@server/repositories/watchlist", () => ({
   listWatchlistSelectedSources: vi.fn(),
@@ -455,6 +456,39 @@ describe("watchlist results service", () => {
       expect(result.sources[1]).toMatchObject({ status: "success", fetched: 1 });
       // The other source still comes from its stored check.
       expect(result.sources[0]).toMatchObject({ status: "success", fetched: 2 });
+    });
+
+    it("keeps the last result visible and polls only the source with queued work", async () => {
+      vi.mocked(watchlistRepo.listWatchlistSourceResults).mockResolvedValue([
+        storedWorkday,
+        storedBamboohrError,
+      ]);
+      const fetchJobs = vi
+        .fn()
+        .mockRejectedValueOnce(new CareersWorkPending("Crawl queued"))
+        .mockResolvedValueOnce({ jobs: [], total: 0, fetched: 0 });
+      const adapter = vi.mocked(getWatchlistSourceAdapter).getMockImplementation();
+      vi.mocked(getWatchlistSourceAdapter).mockImplementation((kind) => {
+        const current = adapter?.(kind);
+        return current ? { ...current, fetchJobs } : null;
+      });
+      const refresh = await getCurrentWatchlistResults({
+        refresh: true,
+        sourceIds: [workdaySource.id],
+      });
+      expect(refresh.pendingSourceIds).toEqual([workdaySource.id]);
+      expect(refresh.sources[0]).toMatchObject({ status: "success", fetched: 2 });
+      expect(watchlistRepo.recordWatchlistCheck).not.toHaveBeenCalled();
+
+      const pending = vi.mocked(watchlistRepo.saveWatchlistSourceResults).mock.calls[0][0][0];
+      vi.mocked(watchlistRepo.listWatchlistSourceResults).mockResolvedValue([
+        pending,
+        storedBamboohrError,
+      ]);
+      const completed = await getCurrentWatchlistResults();
+      expect(completed.pendingSourceIds).toBeUndefined();
+      expect(completed.sources[0]).toMatchObject({ status: "success", fetched: 0 });
+      expect(fetchJobs).toHaveBeenCalledTimes(2);
     });
 
     it("re-checks an unhealthy source on refresh and remembers the new outcome", async () => {

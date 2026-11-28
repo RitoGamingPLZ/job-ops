@@ -1,4 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
+import type {
+  CareersCrawlRequest,
+  CareersCrawlStatus,
+  CareersScanRequest,
+  CareersScanStatus,
+} from "../../orchestrator/src/server/watchlist/careers-site/scan-task";
 import type { OnTaskDonePosting } from "./app-store";
 import type { Env } from "./types";
 import { jsonError, resolveInternalContainerSecret, sleep } from "./utils";
@@ -13,6 +19,11 @@ const DEFAULT_MIN_INTERVAL_MS = 30_000;
 const COOLDOWN_MIN_MS = 5 * 60_000;
 const COOLDOWN_MAX_MS = 2 * 60 * 60 * 1000;
 const DEFAULT_SCRAPER_POOL_SIZE = 2;
+const CAREERS_SCAN_SOURCE_PREFIX = "careers-scan:";
+const CAREERS_CRAWL_SOURCE_PREFIX = "careers-crawl:";
+const MAX_ACTIVE_CAREERS_SCANS = 2;
+const MAX_ACTIVE_CAREERS_CRAWLS = 4;
+const CAREERS_RESULT_FRESHNESS_MS = 5 * 60_000;
 
 export type ScrapeRuntime = "worker" | "browser" | "container";
 
@@ -179,6 +190,8 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
 				ON scrape_tasks (status, next_retry_at);
 			CREATE INDEX IF NOT EXISTS idx_scrape_tasks_key_completed
 				ON scrape_tasks (scrape_key, completed_at);
+			CREATE INDEX IF NOT EXISTS idx_scrape_tasks_source_target_created
+				ON scrape_tasks (source, target, created_at DESC);
 
 			CREATE TABLE IF NOT EXISTS task_subscribers (
 				id TEXT PRIMARY KEY,
@@ -285,6 +298,146 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
     return jsonError(request, "NOT_FOUND", `Unknown ScrapeCoordinator route: ${url.pathname}`, {
       status: 404,
     });
+  }
+
+  async enqueueCareersScan(input: CareersScanRequest): Promise<CareersScanStatus> {
+    const url = new URL(input.careersUrl);
+    if (url.protocol !== "https:" || url.username || url.password || url.port) {
+      throw new Error("Invalid careers listing URL");
+    }
+    url.search = "";
+    url.hash = "";
+    const sql = this.ctx.storage.sql;
+    const now = Date.now();
+    const status = await this.careersScanStatus(url.href);
+    if (status?.state === "queued") {
+      await this.scheduleDispatcherAlarm();
+      return status;
+    }
+    if (status?.state === "finished") {
+      const cooldown =
+        !input.repair && (status.outcome.outcome === "none" || status.outcome.outcome === "found")
+          ? 6 * 60 * 60_000
+          : status.outcome.outcome === "failed"
+            ? 30 * 60_000
+            : 0;
+      if (now - status.finishedAt < cooldown) return status;
+    }
+    // Recheck after the status lookup so concurrent callers cannot create duplicate active work.
+    const source = CAREERS_SCAN_SOURCE_PREFIX + url.hostname;
+    const id = crypto.randomUUID();
+    sql.exec(
+      `INSERT INTO scrape_tasks (
+         id, scrape_key, source, target, runtime, params_json, status,
+         window_start, attempts, max_attempts, created_at, updated_at
+       )
+       SELECT ?, ?, ?, ?, 'container', ?, 'pending', ?, 0, ?, ?, ?
+       WHERE NOT EXISTS (
+         SELECT 1 FROM scrape_tasks
+         WHERE source = ? AND target = ? AND status IN ('pending', 'running')
+       )`,
+      id,
+      id,
+      source,
+      url.href,
+      JSON.stringify({
+        tenantId: input.tenantId,
+        userId: input.userId,
+        requestId: input.requestId,
+        pipelineRunId: input.pipelineRunId,
+      }),
+      now,
+      DEFAULT_MAX_ATTEMPTS,
+      now,
+      now,
+      source,
+      url.href,
+    );
+    await this.scheduleDispatcherAlarm();
+    return (await this.careersScanStatus(url.href)) ?? { state: "queued" };
+  }
+
+  async careersScanStatus(value: string): Promise<CareersScanStatus | null> {
+    const url = new URL(value);
+    url.search = "";
+    url.hash = "";
+    const task = this.ctx.storage.sql
+      .exec<ScrapeTaskRow>(
+        `SELECT * FROM scrape_tasks WHERE source = ? AND target = ?
+       ORDER BY created_at DESC LIMIT 1`,
+        CAREERS_SCAN_SOURCE_PREFIX + url.hostname,
+        url.href,
+      )
+      .toArray()[0];
+    if (!task) return null;
+    if (task.status === "running" || task.status === "pending")
+      return { state: "queued", taskId: task.id };
+    const outcome =
+      task.last_error === "found" ||
+      task.last_error === "none" ||
+      task.last_error === "blocked" ||
+      task.last_error === "unavailable"
+        ? task.last_error
+        : "failed";
+    return { state: "finished", outcome: { outcome }, finishedAt: task.updated_at };
+  }
+
+  async enqueueCareersCrawl(input: CareersCrawlRequest): Promise<CareersCrawlStatus> {
+    const sql = this.ctx.storage.sql;
+    const now = Date.now();
+    const source = CAREERS_CRAWL_SOURCE_PREFIX + input.host;
+    const task = sql
+      .exec<ScrapeTaskRow>(
+        `SELECT * FROM scrape_tasks WHERE source = ? AND scrape_key = ?
+       ORDER BY created_at DESC LIMIT 1`,
+        source,
+        input.key,
+      )
+      .toArray()[0];
+    if (task?.status === "running" || task?.status === "pending") {
+      await this.scheduleDispatcherAlarm();
+      return { state: "queued" };
+    }
+    if (task && now - task.updated_at < CAREERS_RESULT_FRESHNESS_MS) {
+      return {
+        state: "finished",
+        result:
+          task.status === "completed" && task.params_json
+            ? JSON.parse(task.params_json)
+            : { kind: "failed" },
+      };
+    }
+    sql.exec(
+      `INSERT INTO scrape_tasks (
+        id, scrape_key, source, target, title, runtime, params_json, status,
+        window_start, attempts, max_attempts, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'container', ?, 'pending', ?, 0, ?, ?, ?)`,
+      crypto.randomUUID(),
+      input.key,
+      source,
+      input.host,
+      input.scanTaskId ?? null,
+      JSON.stringify({ payload: input.payload, requestId: input.requestId }),
+      now,
+      DEFAULT_MAX_ATTEMPTS,
+      now,
+      now,
+    );
+    await this.scheduleDispatcherAlarm();
+    return { state: "queued" };
+  }
+
+  async readCareersCrawl(key: string, host: string): Promise<unknown> {
+    const row = this.ctx.storage.sql
+      .exec<{ params_json: string | null }>(
+        `SELECT params_json FROM scrape_tasks WHERE source = ? AND scrape_key = ?
+       AND status = 'completed' AND params_json IS NOT NULL ORDER BY completed_at DESC LIMIT 5`,
+        CAREERS_CRAWL_SOURCE_PREFIX + host,
+        key,
+      )
+      .toArray()
+      .find((item) => JSON.parse(item.params_json ?? "null")?.kind === "jobs");
+    return row?.params_json ? JSON.parse(row.params_json) : null;
   }
 
   async ensureTask(input: EnsureTaskInput): Promise<{
@@ -743,22 +896,93 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
 
     // 2. 30-day retention cleanup for unseen postings.
     sql.exec(`DELETE FROM postings WHERE last_seen_at < ?`, now - RETENTION_MS);
+    sql.exec(
+      `DELETE FROM scrape_tasks WHERE (source LIKE ? OR source LIKE ?) AND updated_at < ?
+       AND status IN ('completed', 'failed')`,
+      `${CAREERS_SCAN_SOURCE_PREFIX}%`,
+      `${CAREERS_CRAWL_SOURCE_PREFIX}%`,
+      now - RETENTION_MS,
+    );
 
     // 3. Dispatch eligible pending tasks respecting per-site rate limits.
     const pendingTasks = sql
       .exec<ScrapeTaskRow>(
         `SELECT * FROM scrape_tasks
 				 WHERE status = 'pending'
+                   AND source NOT LIKE ? AND source NOT LIKE ?
 				   AND (next_retry_at IS NULL OR next_retry_at <= ?)
 				 ORDER BY created_at ASC
 				 LIMIT 25`,
+        `${CAREERS_SCAN_SOURCE_PREFIX}%`,
+        `${CAREERS_CRAWL_SOURCE_PREFIX}%`,
         now,
       )
       .toArray();
+    pendingTasks.push(
+      ...sql
+        .exec<ScrapeTaskRow>(
+          `SELECT * FROM scrape_tasks WHERE status = 'pending' AND source LIKE ?
+         AND (next_retry_at IS NULL OR next_retry_at <= ?)
+         ORDER BY created_at ASC LIMIT 25`,
+          `${CAREERS_SCAN_SOURCE_PREFIX}%`,
+          now,
+        )
+        .toArray(),
+    );
+    pendingTasks.push(
+      ...sql
+        .exec<ScrapeTaskRow>(
+          `SELECT * FROM scrape_tasks WHERE status = 'pending' AND source LIKE ?
+       AND (next_retry_at IS NULL OR next_retry_at <= ?)
+       ORDER BY created_at ASC LIMIT 25`,
+          `${CAREERS_CRAWL_SOURCE_PREFIX}%`,
+          now,
+        )
+        .toArray(),
+    );
 
     const dayWindowStart = Math.floor(now / ROLLING_WINDOW_MS) * ROLLING_WINDOW_MS;
 
     for (const task of pendingTasks) {
+      const scan = task.source.startsWith(CAREERS_SCAN_SOURCE_PREFIX);
+      const crawl = task.source.startsWith(CAREERS_CRAWL_SOURCE_PREFIX);
+      if (crawl && task.title) {
+        const dependency = sql
+          .exec<{ status: string }>(
+            "SELECT status FROM scrape_tasks WHERE id = ? AND source LIKE ?",
+            task.title,
+            `${CAREERS_SCAN_SOURCE_PREFIX}%`,
+          )
+          .toArray()[0];
+        if (dependency?.status === "pending" || dependency?.status === "running") continue;
+        if (dependency?.status !== "completed") {
+          sql.exec(
+            "UPDATE scrape_tasks SET status = 'failed', last_error = 'Scan failed', params_json = NULL, updated_at = ? WHERE id = ?",
+            now,
+            task.id,
+          );
+          continue;
+        }
+      }
+      if (scan || crawl) {
+        const prefix = scan ? CAREERS_SCAN_SOURCE_PREFIX : CAREERS_CRAWL_SOURCE_PREFIX;
+        const otherPrefix = scan ? CAREERS_CRAWL_SOURCE_PREFIX : CAREERS_SCAN_SOURCE_PREFIX;
+        const otherSource = otherPrefix + task.source.slice(prefix.length);
+        const { n } = sql
+          .exec<{ n: number }>(
+            "SELECT COUNT(*) as n FROM scrape_tasks WHERE status = 'running' AND source LIKE ?",
+            `${prefix}%`,
+          )
+          .one();
+        if (n >= (scan ? MAX_ACTIVE_CAREERS_SCANS : MAX_ACTIVE_CAREERS_CRAWLS)) continue;
+        const otherActive = sql
+          .exec<{ id: string }>(
+            "SELECT id FROM scrape_tasks WHERE source = ? AND status = 'running' LIMIT 1",
+            otherSource,
+          )
+          .toArray()[0];
+        if (otherActive) continue;
+      }
       const state = sql
         .exec<SourceStateRow>(`SELECT * FROM source_state WHERE source = ? LIMIT 1`, task.source)
         .toArray()[0];
@@ -815,8 +1039,11 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
       );
 
       this.ctx.waitUntil(
-        this.dispatchTask(task).catch((error: unknown) => {
-          console.error(`Scrape dispatch failed for task ${task.id}:`, error);
+        this.dispatchTask({ ...task, lease_owner: leaseOwner }).catch((error: unknown) => {
+          console.error(
+            `Scrape dispatch failed for task ${task.id}:`,
+            scan || crawl ? "Careers task RPC failed" : error,
+          );
         }),
       );
     }
@@ -834,6 +1061,14 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
   }
 
   private async dispatchTask(task: ScrapeTaskRow): Promise<void> {
+    if (task.source.startsWith(CAREERS_SCAN_SOURCE_PREFIX)) {
+      await this.dispatchCareersScan(task);
+      return;
+    }
+    if (task.source.startsWith(CAREERS_CRAWL_SOURCE_PREFIX)) {
+      await this.dispatchCareersCrawl(task);
+      return;
+    }
     const runtime = (task.runtime || "worker") as ScrapeRuntime;
     const payload = {
       taskId: task.id,
@@ -853,6 +1088,79 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
     } else {
       await this.dispatchContainerScrape(task, payload);
     }
+  }
+
+  private async dispatchCareersCrawl(task: ScrapeTaskRow): Promise<void> {
+    const appStore = this.env.APP_STORE?.getByName("primary");
+    if (!appStore || !task.params_json) return;
+    const input = JSON.parse(task.params_json) as Pick<
+      CareersCrawlRequest,
+      "payload" | "requestId"
+    >;
+    const result = await appStore.executeCareersCrawl({ ...input, host: task.target });
+    const retry = result.kind === "unavailable" && task.attempts + 1 < task.max_attempts;
+    const now = Date.now();
+    const serialized = JSON.stringify(result);
+    const payload =
+      new TextEncoder().encode(serialized).byteLength < 1_500_000
+        ? serialized
+        : JSON.stringify({ kind: "failed" });
+    this.ctx.storage.transactionSync(() => {
+      const sql = this.ctx.storage.sql;
+      const updated = sql
+        .exec<{ id: string }>(
+          `UPDATE scrape_tasks SET status = ?, updated_at = ?, completed_at = ?,
+           lease_owner = NULL, lease_expires_at = NULL, params_json = ?, next_retry_at = ?
+         WHERE id = ? AND status = 'running' AND lease_owner = ? RETURNING id`,
+          retry ? "pending" : "completed",
+          now,
+          retry ? null : now,
+          retry ? task.params_json : payload,
+          retry ? now + DISPATCH_INTERVAL_MS : null,
+          task.id,
+          task.lease_owner,
+        )
+        .toArray()[0];
+      if (updated)
+        sql.exec(
+          "UPDATE source_state SET active_count = MAX(0, active_count - 1), updated_at = ? WHERE source = ?",
+          now,
+          task.source,
+        );
+    });
+  }
+
+  private async dispatchCareersScan(task: ScrapeTaskRow): Promise<void> {
+    const appStore = this.env.APP_STORE?.getByName("primary");
+    if (!appStore || !task.params_json) return;
+    const context = JSON.parse(task.params_json) as Omit<CareersScanRequest, "careersUrl">;
+    const { outcome } = await appStore.executeCareersScan({ ...context, careersUrl: task.target });
+    const now = Date.now();
+    const retry = outcome === "unavailable" && task.attempts + 1 < task.max_attempts;
+    this.ctx.storage.transactionSync(() => {
+      const sql = this.ctx.storage.sql;
+      const updated = sql
+        .exec<{ id: string }>(
+          `UPDATE scrape_tasks SET status = ?, last_error = ?, updated_at = ?, completed_at = ?,
+           lease_owner = NULL, lease_expires_at = NULL, params_json = ?, next_retry_at = ?
+         WHERE id = ? AND status = 'running' AND lease_owner = ? RETURNING id`,
+          retry ? "pending" : outcome === "found" || outcome === "none" ? "completed" : "failed",
+          outcome,
+          now,
+          retry ? null : now,
+          retry ? task.params_json : null,
+          retry ? now + DISPATCH_INTERVAL_MS : null,
+          task.id,
+          task.lease_owner,
+        )
+        .toArray()[0];
+      if (updated)
+        sql.exec(
+          "UPDATE source_state SET active_count = MAX(0, active_count - 1), updated_at = ? WHERE source = ?",
+          now,
+          task.source,
+        );
+    });
   }
 
   private buildScrapeHeaders(): Record<string, string> {
@@ -914,6 +1222,10 @@ const CONTAINER_INACTIVITY_TIMEOUT_MS = 5 * 60_000;
 const CONTAINER_READY_POLL_MS = 200;
 const CONTAINER_READY_PROBE_TIMEOUT_MS = 1_500;
 const PDF_WORKER_ENTRYPOINT = ["node", "/app/orchestrator/dist/pdf-worker/pdf-worker.mjs"];
+const CAREERS_WORKER_ENTRYPOINT = [
+  "node",
+  "/app/orchestrator/dist/careers-worker/careers-worker.mjs",
+];
 
 /**
  * PDF rendering runs in a dedicated lightweight worker entrypoint on "standard-1" (1/2 vCPU,
@@ -1014,10 +1326,8 @@ export class ScraperContainer extends DurableObject<Env> {
         enableInternet: true,
         ...(pdfRender
           ? { instance: "standard-1", entrypoint: PDF_WORKER_ENTRYPOINT }
-          : // The careers-site learner and crawler run the whole server plus page parsing, which
-            // needs more memory than the default size gives (the container was killed on start).
-            isCareersSiteRequest(request)
-            ? { instance: "standard-1" }
+          : isCareersSiteRequest(request)
+            ? { instance: "standard-1", entrypoint: CAREERS_WORKER_ENTRYPOINT }
             : {}),
         env: {
           NODE_ENV: this.env.NODE_ENV ?? "production",
