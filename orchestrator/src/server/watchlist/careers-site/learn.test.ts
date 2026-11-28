@@ -1035,6 +1035,29 @@ describe("learnRecipe recipe quality gate", () => {
     expect(callJson).toHaveBeenCalledTimes(1);
   });
 
+  it("samples real postings before culture pages whose slug merely starts with careers", async () => {
+    // Lineage lists two such pages ahead of its postings; sampling them in order spent the whole
+    // request budget on pages with no JobPosting and no recipe was ever learned.
+    const culture = [
+      `${root}/us/en/career-growth-development`,
+      `${root}/us/en/careers-military-community`,
+    ];
+    const postings = Array.from({ length: 6 }, (_, i) => `${root}/us/en/job/R${i}/Role-${i}`);
+    pages[`${root}/sitemap.xml`] = urlset([...culture, ...postings]);
+    for (const url of culture) pages[url] = "<main><h1>Culture</h1></main>";
+    for (const url of postings) pages[url] = jsonld;
+    vi.mocked(runRecipe).mockResolvedValue([{ ...job, url: postings[0] }]);
+
+    const recipe = await learnRecipe(careers, {});
+
+    expect(recipe.listing).toEqual({ kind: "sitemap", url: `${root}/sitemap.xml` });
+    const pattern = new RegExp(recipe.jobUrlPattern);
+    expect(postings.every((url) => pattern.test(url))).toBe(true);
+    expect(culture.some((url) => pattern.test(url))).toBe(false);
+    for (const url of culture) expect(loadPage).not.toHaveBeenCalledWith(url, expect.anything());
+    expect(callJson).not.toHaveBeenCalled();
+  });
+
   it("still accepts a sitemap that really holds only a couple of postings", async () => {
     const urls = [`${root}/jobs/a-1`, `${root}/jobs/b-2`];
     pages[`${root}/sitemap.xml`] = urlset(urls);

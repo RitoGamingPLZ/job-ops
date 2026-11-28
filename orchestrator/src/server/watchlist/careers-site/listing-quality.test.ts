@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   jobPathPrefix,
+  jobPathRank,
   postingPattern,
   readListingHints,
   shouldRelearnUnderfitRecipe,
@@ -147,5 +148,20 @@ describe("shouldRelearnUnderfitRecipe", () => {
 
   it("ignores a recipe whose learned time cannot be read", () => {
     expect(relearn("not a date", 1)).toBe(false);
+  });
+});
+
+describe("jobPathRank", () => {
+  it("ranks a posting path above a generic careers page above everything else", () => {
+    expect(jobPathRank("/us/en/job/R123/Engineer")).toBe(2);
+    expect(jobPathRank("/careers/openings/design/producer")).toBe(2);
+    expect(jobPathRank("/careers/team/culture")).toBe(1);
+    expect(jobPathRank("/us/en/about")).toBe(0);
+  });
+
+  it("does not mistake a culture page whose slug starts with careers for a posting", () => {
+    // These match the learner's loose job-path test (`careers-`) but sit in no posting directory.
+    expect(jobPathRank("/us/en/careers-military-community")).toBe(0);
+    expect(jobPathRank("/us/en/career-growth-development")).toBe(0);
   });
 });

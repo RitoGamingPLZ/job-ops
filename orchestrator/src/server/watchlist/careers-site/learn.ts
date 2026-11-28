@@ -11,6 +11,7 @@ import { isAllowedByRobots, loadPage } from "./fetch";
 import {
   escapeRegex,
   jobPathPrefix,
+  jobPathRank,
   type ListingHints,
   MIN_POSTINGS,
   postingPattern,
@@ -406,6 +407,7 @@ export async function learnRecipe(
     urls.sort(
       (a, b) =>
         localeRank(a) - localeRank(b) ||
+        jobPathRank(new URL(b).pathname) - jobPathRank(new URL(a).pathname) ||
         Number(jobPathPattern.test(new URL(b).pathname)) -
           Number(jobPathPattern.test(new URL(a).pathname)),
     );
