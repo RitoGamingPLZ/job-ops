@@ -1274,3 +1274,35 @@ describe("careers-site recipes learned before the quality gate", () => {
     await vi.waitFor(() => expect(mocks.learn).toHaveBeenCalledTimes(1));
   });
 });
+
+describe("careersCrawlLimit", () => {
+  const search = {
+    url: "https://example.com/careers",
+    params: [],
+    pagination: { kind: "none" },
+    maxPages: 1,
+    render: true,
+  } as unknown as NonNullable<Recipe["search"]>;
+  const limitFor = async (candidate: Recipe, careersUrl: string) =>
+    (await import("./careers-site")).careersCrawlLimit(candidate, careersUrl);
+
+  it("gives a plain sitemap or JSON-LD recipe 60", async () => {
+    expect(await limitFor(recipe, "https://example.com/careers")).toBe(60);
+  });
+
+  it("caps a rendered listing page at 10 and rendered details at 4", async () => {
+    const rendered = {
+      ...recipe,
+      listing: { kind: "page", url: "https://example.com/careers", render: true },
+    } as Recipe;
+    expect(await limitFor(rendered, "https://example.com/careers")).toBe(10);
+    const details = { ...recipe, detail: { kind: "jsonld", render: true } } as unknown as Recipe;
+    expect(await limitFor(details, "https://example.com/careers")).toBe(4);
+  });
+
+  it("caps a rendered search only for a source URL on its listing path", async () => {
+    const searched = { ...recipe, version: 2, search } as Recipe;
+    expect(await limitFor(searched, "https://example.com/careers?q=nurse")).toBe(10);
+    expect(await limitFor(searched, "https://example.com/other?q=nurse")).toBe(60);
+  });
+});
