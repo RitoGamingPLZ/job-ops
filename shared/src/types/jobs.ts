@@ -1,7 +1,9 @@
 import type { ExtractorSourceId } from "../extractors";
 import type { LocationEvidence, LocationMatchResult } from "./location";
+import type { WatchlistScanOutcome } from "./watchlist-scan";
 
 export type { LocationEvidenceQuality } from "./location";
+export type { WatchlistScanOutcome } from "./watchlist-scan";
 
 export type JobLocationEvidence = LocationEvidence;
 
@@ -486,12 +488,6 @@ export interface WatchlistSearchControl {
   input: { kind: "text" } | { kind: "choice"; options: Array<{ value: string; label?: string }> };
   /** Whether several choices may be selected at once. */
   multiple: boolean;
-}
-
-/** How the last background scan of a careers site ended; reasons are bounded, page-free messages. */
-export interface WatchlistScanOutcome {
-  outcome: "found" | "none" | "failed" | "unavailable" | "blocked";
-  reason?: string;
 }
 
 export type WatchlistSearchControlsResponse =

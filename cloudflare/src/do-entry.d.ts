@@ -117,7 +117,7 @@ declare module "*do-entry.mjs" {
 
   export function executeCareersScan(
     input: import("../../orchestrator/src/server/watchlist/careers-site/scan-task").CareersScanRequest,
-  ): Promise<import("../../shared/src/types/jobs").WatchlistScanOutcome>;
+  ): Promise<import("../../shared/src/types/watchlist-scan").WatchlistScanOutcome>;
   export function getSiteRecipe(host: string): Promise<{ recipe: unknown } | null>;
   export function recordQueuedCareersCrawl(
     host: string,

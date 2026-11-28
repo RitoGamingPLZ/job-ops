@@ -1,4 +1,4 @@
-import type { WatchlistScanOutcome } from "../../../../../shared/src/types/jobs";
+import type { WatchlistScanOutcome } from "../../../../../shared/src/types/watchlist-scan";
 
 /** AppStore resolves credentials at execution using this authenticated scope. */
 export interface CareersScanRequest {
