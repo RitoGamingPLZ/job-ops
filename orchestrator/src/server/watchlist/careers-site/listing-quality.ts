@@ -28,6 +28,18 @@ function lastMatch(parts: string[], pattern: RegExp): number {
 }
 
 /**
+ * How strongly a URL path looks like a posting: 2 when a directory names the posting collection
+ * (`/us/en/job/R123/Engineer`), 1 for only a generic `careers` directory, 0 otherwise. The learner
+ * samples sitemap URLs in this order, so culture pages such as `/careers-military-community` do not
+ * use up its few requests before it reaches a real posting.
+ */
+export function jobPathRank(pathname: string): 0 | 1 | 2 {
+  const directories = pathname.split("/").filter(Boolean).slice(0, -1);
+  if (lastMatch(directories, SPECIFIC_SEGMENT) >= 0) return 2;
+  return lastMatch(directories, GENERIC_SEGMENT) >= 0 ? 1 : 0;
+}
+
+/**
  * The directory shared by every posting URL, found from the segment that names the collection:
  * `/us/en/job/` for `/us/en/job/R123/Engineer`. Using the posting's own parent directory instead
  * would fit one posting when each lives in a directory named after its id.
