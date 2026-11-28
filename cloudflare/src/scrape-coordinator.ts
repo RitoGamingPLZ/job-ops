@@ -904,42 +904,16 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
       now - RETENTION_MS,
     );
 
-    // 3. Dispatch eligible pending tasks respecting per-site rate limits.
-    const pendingTasks = sql
-      .exec<ScrapeTaskRow>(
-        `SELECT * FROM scrape_tasks
-				 WHERE status = 'pending'
-                   AND source NOT LIKE ? AND source NOT LIKE ?
-				   AND (next_retry_at IS NULL OR next_retry_at <= ?)
-				 ORDER BY created_at ASC
-				 LIMIT 25`,
+    // 3. Dispatch eligible pending tasks respecting per-site rate limits. Each group is queried
+    // separately so a backlog in one cannot push the others out of its 25-row window.
+    const pendingTasks = [
+      this.selectPending(`source NOT LIKE ? AND source NOT LIKE ?`, now, [
         `${CAREERS_SCAN_SOURCE_PREFIX}%`,
         `${CAREERS_CRAWL_SOURCE_PREFIX}%`,
-        now,
-      )
-      .toArray();
-    pendingTasks.push(
-      ...sql
-        .exec<ScrapeTaskRow>(
-          `SELECT * FROM scrape_tasks WHERE status = 'pending' AND source LIKE ?
-         AND (next_retry_at IS NULL OR next_retry_at <= ?)
-         ORDER BY created_at ASC LIMIT 25`,
-          `${CAREERS_SCAN_SOURCE_PREFIX}%`,
-          now,
-        )
-        .toArray(),
-    );
-    pendingTasks.push(
-      ...sql
-        .exec<ScrapeTaskRow>(
-          `SELECT * FROM scrape_tasks WHERE status = 'pending' AND source LIKE ?
-       AND (next_retry_at IS NULL OR next_retry_at <= ?)
-       ORDER BY created_at ASC LIMIT 25`,
-          `${CAREERS_CRAWL_SOURCE_PREFIX}%`,
-          now,
-        )
-        .toArray(),
-    );
+      ]),
+      this.selectPending(`source LIKE ?`, now, [`${CAREERS_SCAN_SOURCE_PREFIX}%`]),
+      this.selectPending(`source LIKE ?`, now, [`${CAREERS_CRAWL_SOURCE_PREFIX}%`]),
+    ].flat();
 
     const dayWindowStart = Math.floor(now / ROLLING_WINDOW_MS) * ROLLING_WINDOW_MS;
 
@@ -1060,6 +1034,57 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
     }
   }
 
+  private selectPending(sourceFilter: string, now: number, params: string[]): ScrapeTaskRow[] {
+    return this.ctx.storage.sql
+      .exec<ScrapeTaskRow>(
+        `SELECT * FROM scrape_tasks
+         WHERE status = 'pending' AND ${sourceFilter}
+           AND (next_retry_at IS NULL OR next_retry_at <= ?)
+         ORDER BY created_at ASC
+         LIMIT 25`,
+        ...params,
+        now,
+      )
+      .toArray();
+  }
+
+  /**
+   * Settles a running careers task, or puts it back in the queue for another attempt. Guarded by the
+   * lease so a task reclaimed after expiry cannot be finished twice, and releases the source slot
+   * only when this call actually owned the lease.
+   */
+  private settleCareersTask(
+    task: ScrapeTaskRow,
+    result: { status: string; lastError: string | null; paramsJson: string | null; retry: boolean },
+  ): void {
+    const now = Date.now();
+    this.ctx.storage.transactionSync(() => {
+      const sql = this.ctx.storage.sql;
+      const updated = sql
+        .exec<{ id: string }>(
+          `UPDATE scrape_tasks SET status = ?, last_error = COALESCE(?, last_error), updated_at = ?,
+             completed_at = ?, lease_owner = NULL, lease_expires_at = NULL, params_json = ?,
+             next_retry_at = ?
+           WHERE id = ? AND status = 'running' AND lease_owner = ? RETURNING id`,
+          result.retry ? "pending" : result.status,
+          result.lastError,
+          now,
+          result.retry ? null : now,
+          result.retry ? task.params_json : result.paramsJson,
+          result.retry ? now + DISPATCH_INTERVAL_MS : null,
+          task.id,
+          task.lease_owner,
+        )
+        .toArray()[0];
+      if (updated)
+        sql.exec(
+          "UPDATE source_state SET active_count = MAX(0, active_count - 1), updated_at = ? WHERE source = ?",
+          now,
+          task.source,
+        );
+    });
+  }
+
   private async dispatchTask(task: ScrapeTaskRow): Promise<void> {
     if (task.source.startsWith(CAREERS_SCAN_SOURCE_PREFIX)) {
       await this.dispatchCareersScan(task);
@@ -1098,35 +1123,16 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
       "payload" | "requestId"
     >;
     const result = await appStore.executeCareersCrawl({ ...input, host: task.target });
-    const retry = result.kind === "unavailable" && task.attempts + 1 < task.max_attempts;
-    const now = Date.now();
     const serialized = JSON.stringify(result);
     const payload =
       new TextEncoder().encode(serialized).byteLength < 1_500_000
         ? serialized
         : JSON.stringify({ kind: "failed" });
-    this.ctx.storage.transactionSync(() => {
-      const sql = this.ctx.storage.sql;
-      const updated = sql
-        .exec<{ id: string }>(
-          `UPDATE scrape_tasks SET status = ?, updated_at = ?, completed_at = ?,
-           lease_owner = NULL, lease_expires_at = NULL, params_json = ?, next_retry_at = ?
-         WHERE id = ? AND status = 'running' AND lease_owner = ? RETURNING id`,
-          retry ? "pending" : "completed",
-          now,
-          retry ? null : now,
-          retry ? task.params_json : payload,
-          retry ? now + DISPATCH_INTERVAL_MS : null,
-          task.id,
-          task.lease_owner,
-        )
-        .toArray()[0];
-      if (updated)
-        sql.exec(
-          "UPDATE source_state SET active_count = MAX(0, active_count - 1), updated_at = ? WHERE source = ?",
-          now,
-          task.source,
-        );
+    this.settleCareersTask(task, {
+      status: "completed",
+      lastError: null,
+      paramsJson: payload,
+      retry: result.kind === "unavailable" && task.attempts + 1 < task.max_attempts,
     });
   }
 
@@ -1135,31 +1141,11 @@ export class ScrapeCoordinatorDO extends DurableObject<Env> {
     if (!appStore || !task.params_json) return;
     const context = JSON.parse(task.params_json) as Omit<CareersScanRequest, "careersUrl">;
     const { outcome } = await appStore.executeCareersScan({ ...context, careersUrl: task.target });
-    const now = Date.now();
-    const retry = outcome === "unavailable" && task.attempts + 1 < task.max_attempts;
-    this.ctx.storage.transactionSync(() => {
-      const sql = this.ctx.storage.sql;
-      const updated = sql
-        .exec<{ id: string }>(
-          `UPDATE scrape_tasks SET status = ?, last_error = ?, updated_at = ?, completed_at = ?,
-           lease_owner = NULL, lease_expires_at = NULL, params_json = ?, next_retry_at = ?
-         WHERE id = ? AND status = 'running' AND lease_owner = ? RETURNING id`,
-          retry ? "pending" : outcome === "found" || outcome === "none" ? "completed" : "failed",
-          outcome,
-          now,
-          retry ? null : now,
-          retry ? task.params_json : null,
-          retry ? now + DISPATCH_INTERVAL_MS : null,
-          task.id,
-          task.lease_owner,
-        )
-        .toArray()[0];
-      if (updated)
-        sql.exec(
-          "UPDATE source_state SET active_count = MAX(0, active_count - 1), updated_at = ? WHERE source = ?",
-          now,
-          task.source,
-        );
+    this.settleCareersTask(task, {
+      status: outcome === "found" || outcome === "none" ? "completed" : "failed",
+      lastError: outcome,
+      paramsJson: null,
+      retry: outcome === "unavailable" && task.attempts + 1 < task.max_attempts,
     });
   }
 
