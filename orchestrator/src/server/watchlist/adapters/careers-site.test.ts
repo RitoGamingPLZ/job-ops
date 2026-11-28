@@ -75,7 +75,8 @@ function record(overrides: Partial<SiteRecipeRecord> = {}): SiteRecipeRecord {
   return {
     host: "example.com",
     recipe,
-    learnedAt: "2026-11-07",
+    // Learned after the quality gate shipped, so it is never second-guessed for returning few jobs.
+    learnedAt: "2026-12-01T00:00:00.000Z",
     lastSuccessAt: null,
     consecutiveFailures: 0,
     blockedReason: null,
@@ -1226,5 +1227,48 @@ describe("careers-site rescan guards and filter carry-over", () => {
       source: { ...source, careersUrl: "https://example.com/careers?q=x" },
     });
     expect(mocks.run).toHaveBeenLastCalledWith(withSearch, expect.objectContaining({ limit: 10 }));
+  });
+});
+
+describe("careers-site recipes learned before the quality gate", () => {
+  const preGate = "2026-11-28T02:00:00.000Z";
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it("relearns a recipe that returns too few postings in the background and keeps serving them", async () => {
+    mocks.get.mockResolvedValue(record({ learnedAt: preGate }));
+    mocks.run.mockResolvedValue([job()]);
+
+    const result = await adapter.fetchJobs({ source });
+
+    expect(result.jobs).toHaveLength(1);
+    await vi.waitFor(() => expect(mocks.learn).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+  });
+
+  it.each([
+    ["returns enough postings", { learnedAt: preGate }, 5, source],
+    ["was learned after the gate", { learnedAt: "2026-12-01T00:00:00.000Z" }, 1, source],
+    [
+      "is read through a filtered source URL",
+      { learnedAt: preGate },
+      1,
+      { ...source, careersUrl: "https://example.com/careers?team=eng" },
+    ],
+  ])("leaves a recipe alone when it %s", async (_name, overrides, count, careers) => {
+    mocks.get.mockResolvedValue(record(overrides));
+    mocks.run.mockResolvedValue(Array.from({ length: count }, (_, i) => job(String(i + 1))));
+
+    await adapter.fetchJobs({ source: careers });
+    await flush();
+
+    expect(mocks.learn).not.toHaveBeenCalled();
+  });
+
+  it("does not let a failed background relearn break the fetch", async () => {
+    mocks.get.mockResolvedValue(record({ learnedAt: preGate }));
+    mocks.learn.mockRejectedValue(new Error("learner down"));
+
+    await expect(adapter.fetchJobs({ source })).resolves.toMatchObject({ fetched: 1 });
+    await vi.waitFor(() => expect(mocks.learn).toHaveBeenCalledTimes(1));
   });
 });
