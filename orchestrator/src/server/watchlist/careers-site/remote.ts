@@ -1,3 +1,4 @@
+import type { Facets } from "../autofilter/types";
 import type { CrawledJob, Recipe } from "./types";
 import type {
   CareersCrawlRequest,
@@ -36,7 +37,21 @@ export type RemoteCareersSiteLearnResult =
   | { kind: "failed"; message: string }
   | { kind: "unavailable"; message?: string };
 
+/** Public listing facets read by the container; `countFiltered` is rebuilt by the caller. */
+export type RemoteCareersSiteFacetsResult =
+  | { kind: "facets"; facets: Omit<Facets, "countFiltered"> }
+  | { kind: "blocked"; reason: string }
+  | { kind: "failed"; message: string }
+  | { kind: "unavailable"; message?: string };
+
 export interface RemoteCareersSiteRunner {
+  /** Read a listing page's public filter choices; jsdom parses them, so the Worker cannot. */
+  facets?(input: {
+    careersUrl: string;
+    /** Keep the URL's own query: the result is only used to count the filtered listing. */
+    filtered: boolean;
+    signal?: AbortSignal;
+  }): Promise<RemoteCareersSiteFacetsResult>;
   readCrawl?(key: string, host: string): Promise<unknown>;
   enqueueCrawl?(input: CareersCrawlRequest): Promise<CareersCrawlStatus>;
   enqueueScan?(input: CareersScanRequest): Promise<CareersScanStatus>;

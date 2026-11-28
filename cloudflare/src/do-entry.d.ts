@@ -25,6 +25,11 @@ declare module "*do-entry.mjs" {
         | import("../../orchestrator/src/server/watchlist/careers-site/scan-task").CareersScanStatus
         | null
       >;
+      facets?: (input: {
+        careersUrl: string;
+        filtered: boolean;
+        signal?: AbortSignal;
+      }) => Promise<{ kind: string; [key: string]: unknown }>;
       run(input: {
         recipe: unknown;
         sourceUrl?: string;

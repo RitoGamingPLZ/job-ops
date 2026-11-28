@@ -35,6 +35,7 @@ const IMPORT_BATCH_SIZE = 500;
 const EXTRACTOR_RUN_TIMEOUT_MS = 10 * 60_000;
 // A careers crawl has a 25 s budget; learning a new site can take up to ~3 minutes.
 const CAREERS_RUN_TIMEOUT_MS = 40_000;
+const CAREERS_FACETS_TIMEOUT_MS = 40_000;
 const CAREERS_LEARN_TIMEOUT_MS = 200_000;
 
 async function readBoundedErrorBody(response: Response): Promise<unknown> {
@@ -193,6 +194,13 @@ export class AppStore extends DurableObject<Env> {
                 this.env.SCRAPE_COORDINATOR!.getByName("primary").careersScanStatus(url),
             }
           : {}),
+        facets: (input) =>
+          this.callCareersSiteContainer(
+            "facets",
+            { careersUrl: input.careersUrl, filtered: input.filtered },
+            CAREERS_FACETS_TIMEOUT_MS,
+            input.signal,
+          ),
         run: (input) =>
           this.callCareersSiteContainer(
             "run",
@@ -295,7 +303,7 @@ export class AppStore extends DurableObject<Env> {
   }
 
   private async callCareersSiteContainer(
-    action: "run" | "learn",
+    action: "run" | "learn" | "facets",
     body: unknown,
     timeoutMs: number,
     callerSignal?: AbortSignal,

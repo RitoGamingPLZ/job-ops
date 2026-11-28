@@ -1,9 +1,11 @@
-import { badRequest } from "@infra/errors";
+import { AppError, badRequest } from "@infra/errors";
 import { asyncRoute, ok } from "@infra/http";
 import { logger } from "@infra/logger";
 import { LlmService } from "@server/services/llm/service";
 import { learnRecipe, RecipeLearningError } from "@server/watchlist/careers-site/learn";
+import { readListingFacetsLocal } from "@server/watchlist/autofilter/facets/careers-site";
 import type {
+  RemoteCareersSiteFacetsResult,
   RemoteCareersSiteLearnResult,
   RemoteCareersSiteRunResult,
 } from "@server/watchlist/careers-site/remote";
@@ -35,11 +37,46 @@ const learnSchema = z.object({
   }),
 });
 
+const facetsSchema = z.object({ careersUrl: httpsUrl, filtered: z.boolean() });
+
+const FACETS_TIMEOUT_MS = 30_000;
 const RUN_TIMEOUT_MS = 28_000;
 const LEARN_TIMEOUT_MS = 175_000;
 
 export const internalCareersSiteRouter = Router();
 internalCareersSiteRouter.use(verifyInternalScrapeSecret, json({ limit: "512kb" }));
+
+internalCareersSiteRouter.post(
+  "/facets",
+  asyncRoute(async (req, res) => {
+    const parsed = facetsSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest("Invalid careers-site facets request.");
+    const { careersUrl, filtered } = parsed.data;
+    let result: RemoteCareersSiteFacetsResult;
+    try {
+      const { countFiltered: _omit, ...facets } = await readListingFacetsLocal(
+        { careersUrl, signal: AbortSignal.timeout(FACETS_TIMEOUT_MS) },
+        filtered,
+      );
+      result = { kind: "facets", facets };
+    } catch (error) {
+      if (error instanceof SiteBlockedError) {
+        result = { kind: "blocked", reason: error.reason };
+      } else {
+        // AppError messages are the module's own bounded text; anything else stays generic.
+        result = {
+          kind: "failed",
+          message: error instanceof AppError ? error.message : "Careers facets could not be read.",
+        };
+        logger.warn("Careers-site facets failed in the scraper container", {
+          host: new URL(careersUrl).hostname,
+          reason: result.message,
+        });
+      }
+    }
+    ok(res, result);
+  }),
+);
 
 internalCareersSiteRouter.post(
   "/run",
