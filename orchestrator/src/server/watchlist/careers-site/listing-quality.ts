@@ -146,3 +146,24 @@ export function readListingHints(
  * once every host has been seen again.
  */
 export const RECIPE_QUALITY_GATE_SHIPPED_AT = "2026-11-28T03:15:00.000Z";
+
+/**
+ * How long a pre-gate recipe must have been stored before it is relearned. A relearn replaces the
+ * recipe at once, but a finished crawl stays cached for minutes; without this the stale result
+ * would keep re-triggering a relearn that already happened.
+ */
+export const RELEARN_MIN_AGE_MS = 10 * 60_000;
+
+/** Whether a stored recipe predates the quality gate and returned too few postings to be trusted. */
+export function shouldRelearnUnderfitRecipe(input: {
+  learnedAt: string;
+  postings: number;
+  now?: number;
+}): boolean {
+  const age = (input.now ?? Date.now()) - Date.parse(input.learnedAt);
+  return (
+    input.postings < MIN_POSTINGS &&
+    input.learnedAt < RECIPE_QUALITY_GATE_SHIPPED_AT &&
+    age > RELEARN_MIN_AGE_MS
+  );
+}

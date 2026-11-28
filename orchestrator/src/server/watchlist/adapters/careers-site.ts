@@ -23,10 +23,7 @@ import greenhouseCatalog from "@server/config/career-boards-greenhouse.json";
 import { resolveLlmRuntimeSettings } from "@server/services/modelSelection";
 import { getUserById } from "@server/repositories/users";
 import { learnRecipe, RecipeLearningError } from "@server/watchlist/careers-site/learn";
-import {
-  MIN_POSTINGS,
-  RECIPE_QUALITY_GATE_SHIPPED_AT,
-} from "@server/watchlist/careers-site/listing-quality";
+import { shouldRelearnUnderfitRecipe } from "@server/watchlist/careers-site/listing-quality";
 import {
   getRemoteCareersSiteRunner,
   RemoteCareersSiteUnavailableError,
@@ -545,8 +542,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     // vets the replacement) and keep serving what it found meanwhile.
     if (
       !url.search &&
-      jobs.length < MIN_POSTINGS &&
-      stored.learnedAt < RECIPE_QUALITY_GATE_SHIPPED_AT
+      shouldRelearnUnderfitRecipe({ learnedAt: stored.learnedAt, postings: jobs.length })
     ) {
       void ensureLearning(host, url.href, true).catch(() => undefined);
     }
