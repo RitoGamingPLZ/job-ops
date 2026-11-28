@@ -1,9 +1,11 @@
 import { parseSafeHttpsUrl } from "@server/watchlist/adapters/url";
 import { rankFacetValues } from "./shared";
-import { upstreamError } from "@infra/errors";
+import { serviceUnavailable, upstreamError } from "@infra/errors";
 import { JSDOM } from "jsdom";
 import { isAllowedByRobots, loadPage } from "../../careers-site/fetch";
 import { record } from "../../careers-site/normalize";
+import { getRemoteCareersSiteRunner } from "../../careers-site/remote";
+import { isWorkerdRuntime } from "../../runtime";
 import { facetConfig } from "../../careers-site/run-recipe";
 import { SiteBlockedError } from "../../careers-site/types";
 import type { FacetDiscovery, Facets } from "../types";
@@ -18,8 +20,35 @@ export function usableKey(key: string): boolean {
   );
 }
 
-/** Static public facets only; no tenant data, stored recipes, browser, or LLM. */
+/**
+ * Static public facets only; no tenant data, stored recipes, browser, or LLM. Parsing needs jsdom,
+ * which the Cloudflare Worker bundle stubs out, so there it runs in the careers-site container.
+ */
 async function readListingFacets(
+  input: Parameters<FacetDiscovery>[0],
+  filtered = false,
+): Promise<Facets> {
+  if (!isWorkerdRuntime()) return readListingFacetsLocal(input, filtered);
+  const remote = getRemoteCareersSiteRunner();
+  if (!remote?.facets)
+    throw serviceUnavailable("Filter suggestions need the careers-site browser, which is offline.");
+  const result = await remote.facets({
+    careersUrl: input.careersUrl,
+    filtered,
+    signal: input.signal,
+  });
+  if (result.kind === "blocked")
+    throw new SiteBlockedError(new URL(input.careersUrl).hostname, result.reason);
+  if (result.kind === "unavailable")
+    throw serviceUnavailable(
+      result.message ?? "The careers-site browser is starting. Check again in a minute.",
+    );
+  if (result.kind === "failed") throw upstreamError(result.message);
+  return result.facets;
+}
+
+/** Fetch and parse the listing in this process; the container route calls this directly. */
+export async function readListingFacetsLocal(
   { careersUrl, signal }: Parameters<FacetDiscovery>[0],
   filtered = false,
 ): Promise<Facets> {

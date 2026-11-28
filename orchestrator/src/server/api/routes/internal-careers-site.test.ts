@@ -3,7 +3,11 @@ import type { Recipe } from "@server/watchlist/careers-site/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startServer, stopServer } from "./test-utils";
 
-const mocks = vi.hoisted(() => ({ run: vi.fn(), learn: vi.fn() }));
+const mocks = vi.hoisted(() => ({ run: vi.fn(), learn: vi.fn(), facets: vi.fn() }));
+vi.mock("@server/watchlist/autofilter/facets/careers-site", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@server/watchlist/autofilter/facets/careers-site")>()),
+  readListingFacetsLocal: mocks.facets,
+}));
 vi.mock("@server/watchlist/careers-site/run-recipe", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@server/watchlist/careers-site/run-recipe")>()),
   runRecipe: mocks.run,
@@ -195,5 +199,37 @@ describe("internal careers-site crawling", () => {
     const unexpected = await (await post("learn", request)).json();
     expect(unexpected.data.kind).toBe("failed");
     expect(JSON.stringify(unexpected)).not.toContain("secret provider body");
+  });
+
+  it("reads listing facets without the filtered-count callback and reports outcomes", async () => {
+    const { SiteBlockedError } = await loadClasses();
+    const { upstreamError } = await import("@infra/errors");
+    const facets = {
+      unfilteredTotal: 12,
+      params: [{ key: "team", multi: false, values: [{ value: "engineering", count: 4 }] }],
+    };
+    mocks.facets.mockResolvedValueOnce({ ...facets, countFiltered: async () => 1 });
+    const request = { careersUrl: "https://careers.example.com/positions/", filtered: false };
+    expect(await (await post("facets", request)).json()).toMatchObject({
+      ok: true,
+      data: { kind: "facets", facets },
+    });
+    expect(mocks.facets).toHaveBeenLastCalledWith(
+      { careersUrl: request.careersUrl, signal: expect.any(AbortSignal) },
+      false,
+    );
+    mocks.facets.mockRejectedValueOnce(new SiteBlockedError("careers.example.com", "robots"));
+    expect(await (await post("facets", request)).json()).toMatchObject({
+      data: { kind: "blocked", reason: "robots" },
+    });
+    mocks.facets.mockRejectedValueOnce(upstreamError("Careers facets returned HTTP 404."));
+    expect(await (await post("facets", request)).json()).toMatchObject({
+      data: { kind: "failed", message: "Careers facets returned HTTP 404." },
+    });
+    mocks.facets.mockRejectedValueOnce(new Error("secret page body"));
+    const unexpected = await (await post("facets", request)).json();
+    expect(unexpected.data.kind).toBe("failed");
+    expect(JSON.stringify(unexpected)).not.toContain("secret page body");
+    expect((await post("facets", { careersUrl: "not a url", filtered: false })).status).toBe(400);
   });
 });
