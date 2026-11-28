@@ -4,6 +4,10 @@ import { logger } from "@infra/logger";
 import { LlmService } from "@server/services/llm/service";
 import { learnRecipe, RecipeLearningError } from "@server/watchlist/careers-site/learn";
 import { readListingFacetsLocal } from "@server/watchlist/autofilter/facets/careers-site";
+import {
+  CAREERS_CRAWL_ABORT_GRACE_MS,
+  CAREERS_CRAWL_BUDGET_MS,
+} from "@server/watchlist/careers-site/crawl-budget";
 import type {
   RemoteCareersSiteFacetsResult,
   RemoteCareersSiteLearnResult,
@@ -25,7 +29,7 @@ const runSchema = z.object({
   recipe: recipeSchema,
   sourceUrl: httpsUrl.optional(),
   limit: z.number().int().min(1).max(60),
-  budgetMs: z.number().int().min(0).max(25_000),
+  budgetMs: z.number().int().min(0).max(CAREERS_CRAWL_BUDGET_MS),
 });
 const learnSchema = z.object({
   careersUrl: httpsUrl,
@@ -40,7 +44,7 @@ const learnSchema = z.object({
 const facetsSchema = z.object({ careersUrl: httpsUrl, filtered: z.boolean() });
 
 const FACETS_TIMEOUT_MS = 30_000;
-const RUN_TIMEOUT_MS = 28_000;
+const RUN_TIMEOUT_MS = CAREERS_CRAWL_BUDGET_MS + CAREERS_CRAWL_ABORT_GRACE_MS;
 const LEARN_TIMEOUT_MS = 175_000;
 
 export const internalCareersSiteRouter = Router();

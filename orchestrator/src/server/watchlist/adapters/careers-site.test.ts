@@ -758,6 +758,8 @@ describe("careersSiteWatchlistAdapter", () => {
       expect(keys[0]).toBe(keys[2]);
       expect(keys[1]).not.toBe(keys[3]);
       expect(remote.run).not.toHaveBeenCalled();
+      // The queued crawl runs in the background, so it gets the full minute, not the request budget.
+      expect(enqueueCrawl.mock.calls[0][0].payload).toMatchObject({ limit: 60, budgetMs: 60_000 });
     });
     it("does not count an unreachable browser against the recipe or start a learn cooldown", async () => {
       remote.run.mockResolvedValue({ kind: "unavailable", message: "Browser is starting" });

@@ -35,6 +35,7 @@ import {
   type CareersScanRequest,
   type CareersScanStatus,
 } from "@server/watchlist/careers-site/scan-task";
+import { CAREERS_CRAWL_BUDGET_MS } from "@server/watchlist/careers-site/crawl-budget";
 import { sameUrlPath } from "@server/watchlist/careers-site/normalize";
 import { runRecipe } from "@server/watchlist/careers-site/run-recipe";
 import {
@@ -374,7 +375,12 @@ async function crawlQueued(
     key: crawlQueueKey(recipe, url),
     host: url.hostname,
     payload: recipe
-      ? { recipe, ...(url.search ? { sourceUrl: url.href } : {}), limit, budgetMs: 20_000 }
+      ? {
+          recipe,
+          ...(url.search ? { sourceUrl: url.href } : {}),
+          limit,
+          budgetMs: CAREERS_CRAWL_BUDGET_MS,
+        }
       : { careersUrl: url.href },
     scanTaskId,
     requestId: getRequestContext()?.requestId,
