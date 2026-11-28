@@ -182,6 +182,19 @@ describe("internal careers-site crawling", () => {
     expect(options.llm.service).toBeInstanceOf((await loadClasses()).LlmService);
   });
 
+  it("accepts a crawl budget of up to a minute and rejects anything longer", async () => {
+    mocks.run.mockResolvedValue([job]);
+    const request = { recipe, limit: 10 };
+
+    expect((await post("run", { ...request, budgetMs: 60_000 })).status).toBe(200);
+    expect((await post("run", { ...request, budgetMs: 60_001 })).status).toBe(400);
+
+    expect(mocks.run).toHaveBeenCalledTimes(1);
+    // The crawl keeps loading pages for the whole budget before it stops and returns what it has.
+    const [, options] = mocks.run.mock.calls[0];
+    expect(options.stopAt - Date.now()).toBeGreaterThan(50_000);
+  });
+
   it("reports learning outcomes: blocked, rejected recipe, unexpected error", async () => {
     const { SiteBlockedError, RecipeLearningError } = await loadClasses();
     const request = { careersUrl: "https://example.com/careers", llm };

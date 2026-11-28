@@ -10,6 +10,10 @@ import type {
   CareersCrawlRequest,
   CareersScanRequest,
 } from "../../orchestrator/src/server/watchlist/careers-site/scan-task";
+import {
+  CAREERS_CRAWL_BUDGET_MS,
+  CAREERS_CRAWL_CALL_TIMEOUT_MS,
+} from "../../orchestrator/src/server/watchlist/careers-site/crawl-budget";
 import type { Env } from "./types";
 import {
   computeTableChecksum,
@@ -33,8 +37,9 @@ const DO_EXPRESS_PORT = 3001;
 const IMPORT_BATCH_SIZE = 500;
 // Browser-driven extractors (Hiring Cafe) can take several minutes per run.
 const EXTRACTOR_RUN_TIMEOUT_MS = 10 * 60_000;
-// A careers crawl has a 25 s budget; learning a new site can take up to ~3 minutes.
-const CAREERS_RUN_TIMEOUT_MS = 40_000;
+// A careers crawl waits for its own budget plus a cold start; learning a new site can take up to
+// ~3 minutes.
+const CAREERS_RUN_TIMEOUT_MS = CAREERS_CRAWL_CALL_TIMEOUT_MS;
 const CAREERS_FACETS_TIMEOUT_MS = 40_000;
 const CAREERS_LEARN_TIMEOUT_MS = 200_000;
 
@@ -645,7 +650,7 @@ export class AppStore extends DurableObject<Env> {
         recipe: stored.recipe,
         ...(url.search ? { sourceUrl: url.href } : {}),
         limit: 4,
-        budgetMs: 20_000,
+        budgetMs: CAREERS_CRAWL_BUDGET_MS,
       };
     }
     const result = await this.callCareersSiteContainer(
