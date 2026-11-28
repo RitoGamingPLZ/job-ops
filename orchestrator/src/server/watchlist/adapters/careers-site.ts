@@ -241,6 +241,21 @@ export async function recordQueuedCareersCrawl(
     await recordSiteRecipeRun(host, false);
   }
 }
+
+/**
+ * How many postings one crawl of a source may read. Rendered details take 2–20 s a page, so they
+ * stay at 4; a rendered listing page gets 10; plain and JSON-LD recipes get 60. The queued
+ * priming crawl uses this too, so a plain site is not capped at a handful on its first read.
+ */
+export function careersCrawlLimit(recipe: Recipe, careersUrl: string): number {
+  const url = new URL(careersUrl);
+  const listingRenders =
+    url.search && recipe.search && sameListingPath(recipe.search, url.href)
+      ? recipe.search.render
+      : recipe.listing.kind === "page" && recipe.listing.render;
+  return detailRenders(recipe) ? 4 : listingRenders ? 10 : 60;
+}
+
 // Explicitly global and public: how the last background scan of a host ended. No tenant data; the
 // reasons are the learner's own bounded messages, never page text.
 const scans = new Map<string, WatchlistScanOutcome & { at: number }>();
@@ -502,14 +517,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     if (learning.has(host) || !stored?.recipe || stored.consecutiveFailures >= 3)
       return startLearning(host, url.href);
     const recipe = stored.recipe;
-    // Rendered details take 2–20 s/page. Keep their cap at 4 within the
-    // 25 s hard budget; listing-only rendering gets 10, while plain/JSON-LD
-    // recipes get 60.
-    const listingRenders =
-      url.search && recipe.search && sameListingPath(recipe.search, url.href)
-        ? recipe.search.render
-        : recipe.listing.kind === "page" && recipe.listing.render;
-    const limit = detailRenders(recipe) ? 4 : listingRenders ? 10 : 60;
+    const limit = careersCrawlLimit(recipe, url.href);
     cache.delete(sourceKey);
     let collected: CrawledJob[];
     const queued = !input.preview && Boolean(careersQueue()?.enqueueCrawl);

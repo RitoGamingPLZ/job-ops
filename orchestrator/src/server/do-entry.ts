@@ -50,7 +50,11 @@ export type {
   RemoteContainerExtractorRunner,
 };
 export { handleDurableObjectTaskDone, runPortableMigrations };
-export { executeCareersScan, recordQueuedCareersCrawl } from "./watchlist/adapters/careers-site";
+export {
+  careersCrawlLimit,
+  executeCareersScan,
+  recordQueuedCareersCrawl,
+} from "./watchlist/adapters/careers-site";
 export { getSiteRecipe } from "./repositories/site-recipes";
 
 /**

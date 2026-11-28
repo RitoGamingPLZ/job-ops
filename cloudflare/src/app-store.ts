@@ -642,14 +642,15 @@ export class AppStore extends DurableObject<Env> {
     let payload = input.payload;
     if (!payload.recipe && typeof payload.careersUrl === "string") {
       await this.ensureExpressServer();
-      const { getSiteRecipe } = await loadDoEntry();
+      const { careersCrawlLimit, getSiteRecipe } = await loadDoEntry();
       const url = new URL(payload.careersUrl);
       const stored = await getSiteRecipe(url.hostname);
       if (!stored?.recipe) return { kind: "failed" };
       payload = {
         recipe: stored.recipe,
         ...(url.search ? { sourceUrl: url.href } : {}),
-        limit: 4,
+        // The same rule as a normal crawl, so a plain site gets 60 on its first read.
+        limit: careersCrawlLimit(stored.recipe, url.href),
         budgetMs: CAREERS_CRAWL_BUDGET_MS,
       };
     }
