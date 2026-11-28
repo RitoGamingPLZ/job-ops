@@ -147,6 +147,8 @@ function createTestDb(): { sqlite: Database.Database; db: AppDatabase } {
       lease_until TEXT,
       completed_at TEXT,
       result_key TEXT,
+      careers_payload TEXT,
+      careers_dependency TEXT,
       postings_found INTEGER NOT NULL DEFAULT 0,
       posting_ids TEXT,
       error TEXT,

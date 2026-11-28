@@ -745,12 +745,12 @@ describe("careersSiteWatchlistAdapter", () => {
       setRemote({ ...remote, enqueueCrawl });
       for (const tenantId of ["tenant-a", "tenant-b"]) {
         await runWithRequestContext({ tenantId, userId: "user", requestId: tenantId }, async () => {
-          await expect(adapter.fetchJobs({ source })).rejects.toThrow("Crawl queued");
+          await expect(adapter.fetchJobs({ source })).rejects.toThrow("Careers crawl queued.");
           await expect(
             adapter.fetchJobs({
               source: { ...source, careersUrl: source.careersUrl + "?q=private" },
             }),
-          ).rejects.toThrow("Crawl queued");
+          ).rejects.toThrow("Careers crawl queued.");
         });
       }
       const keys = enqueueCrawl.mock.calls.map(([task]) => task.key);
