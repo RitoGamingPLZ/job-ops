@@ -24,6 +24,10 @@ import { resolveLlmRuntimeSettings } from "@server/services/modelSelection";
 import { getUserById } from "@server/repositories/users";
 import { learnRecipe, RecipeLearningError } from "@server/watchlist/careers-site/learn";
 import {
+  MIN_POSTINGS,
+  RECIPE_QUALITY_GATE_SHIPPED_AT,
+} from "@server/watchlist/careers-site/listing-quality";
+import {
   getRemoteCareersSiteRunner,
   RemoteCareersSiteUnavailableError,
   type RemoteCareersSiteRunResult,
@@ -536,6 +540,16 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       if (failures >= 3) return startLearning(host, url.href);
     }
     const jobs = collected.slice(0, limit);
+    // A recipe learned before the quality gate may fit one posting of hundreds and still look
+    // healthy, so it would never be relearned. Relearn it once in the background (the learner now
+    // vets the replacement) and keep serving what it found meanwhile.
+    if (
+      !url.search &&
+      jobs.length < MIN_POSTINGS &&
+      stored.learnedAt < RECIPE_QUALITY_GATE_SHIPPED_AT
+    ) {
+      void ensureLearning(host, url.href, true).catch(() => undefined);
+    }
     if (!queued && !input.preview) {
       setBoundedMapEntry(
         cache,

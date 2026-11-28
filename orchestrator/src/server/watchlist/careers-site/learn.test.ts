@@ -999,3 +999,113 @@ describe("learnRecipe distrusts version 2 material from the model", () => {
     expect(result.version).toBe(1);
   });
 });
+
+describe("learnRecipe recipe quality gate", () => {
+  const postings = (count: number, make: (i: number) => string) =>
+    Array.from({ length: count }, (_, i) => make(i));
+  const urlset = (urls: string[]) =>
+    `<urlset>${urls.map((url) => `<url><loc>${url}</loc></url>`).join("")}</urlset>`;
+
+  it("builds a sitemap pattern that fits every posting when each lives in its own directory", async () => {
+    const urls = postings(6, (i) => `${root}/us/en/job/SNC${i}EXTERNAL/Role-${i}`);
+    pages[`${root}/sitemap.xml`] = urlset(urls);
+    for (const url of urls) pages[url] = jsonld;
+    vi.mocked(runRecipe).mockResolvedValue([{ ...job, url: urls[0] }]);
+
+    const recipe = await learnRecipe(careers, {});
+
+    expect(recipe.listing).toEqual({ kind: "sitemap", url: `${root}/sitemap.xml` });
+    const pattern = new RegExp(recipe.jobUrlPattern);
+    expect(urls.every((url) => pattern.test(url))).toBe(true);
+    expect(pattern.test(`${root}/us/en/job/SNC0EXTERNAL`)).toBe(false);
+    expect(callJson).not.toHaveBeenCalled();
+  });
+
+  it("falls through to the page tiers when a sitemap pattern fits only one of many job URLs", async () => {
+    // Nothing names the collection, so the only anchor is the posting's own directory.
+    const urls = postings(6, (i) => `${root}/careers-eu/a${i}/title-${i}`);
+    pages[`${root}/sitemap.xml`] = urlset(urls);
+    for (const url of urls) pages[url] = jsonld;
+    vi.mocked(runRecipe).mockResolvedValue([{ ...job, url: urls[0] }]);
+    // The model sees the sitemap sample as the job page, so its pattern has to fit that URL.
+    const fitted = { ...learned, jobUrlPattern: "/careers-eu/[^/]+/[^/]+$" };
+    callJson.mockResolvedValue({ success: true, data: fitted });
+
+    await expect(learnRecipe(careers, {})).resolves.toEqual(fitted);
+    expect(callJson).toHaveBeenCalledTimes(1);
+  });
+
+  it("still accepts a sitemap that really holds only a couple of postings", async () => {
+    const urls = [`${root}/jobs/a-1`, `${root}/jobs/b-2`];
+    pages[`${root}/sitemap.xml`] = urlset(urls);
+    for (const url of urls) pages[url] = jsonld;
+    vi.mocked(runRecipe).mockResolvedValue([{ ...job, url: urls[0] }]);
+
+    const recipe = await learnRecipe(careers, {});
+    expect(recipe.listing.kind).toBe("sitemap");
+    expect(callJson).not.toHaveBeenCalled();
+  });
+
+  describe("a landing page that links to the real listing", () => {
+    const search = `${root}/search-results`;
+    const results = postings(6, (i) => `<a href="/jobs/role-${100 + i}">Role ${i}</a>`).join("");
+    const withListing = (url: string): Recipe => ({
+      ...learned,
+      listing: { ...(learned.listing as Extract<Recipe["listing"], { kind: "page" }>), url },
+    });
+
+    beforeEach(() => {
+      pages[careers] =
+        `<a href="/jobs/engineer-123">Engineer</a><a href="/search-results">Search jobs</a>`;
+      // Real listing pages carry navigation too; a pattern matching every link would be rejected.
+      pages[search] = `<a href="/about">About</a><a href="/benefits">Benefits</a>${results}`;
+      for (let i = 0; i < 6; i++) pages[`${root}/jobs/role-${100 + i}`] = jobHtml;
+    });
+
+    it("shows the model the search page and accepts a recipe that lists from it", async () => {
+      callJson.mockResolvedValue({ success: true, data: withListing(search) });
+
+      const recipe = await learnRecipe(careers, {});
+
+      expect(recipe.listing).toMatchObject({ kind: "page", url: search });
+      expect(loadPage).toHaveBeenCalledWith(search, expect.objectContaining({ render: true }));
+      const evidence = JSON.parse(callJson.mock.calls[0][0].messages[1].content);
+      expect(evidence.pageUrl).toBe(search);
+      expect(
+        evidence.links.filter((link: { url: string }) => /\/jobs\//.test(link.url)),
+      ).toHaveLength(6);
+    });
+
+    it("rejects a recipe that keeps the sparse landing page and names the better page on retry", async () => {
+      callJson
+        .mockResolvedValueOnce({ success: true, data: withListing(careers) })
+        .mockResolvedValueOnce({ success: true, data: withListing(search) });
+
+      const recipe = await learnRecipe(careers, {});
+
+      expect(recipe.listing).toMatchObject({ url: search });
+      expect(callJson).toHaveBeenCalledTimes(2);
+      const retry = callJson.mock.calls[1][0].messages[1].content as string;
+      expect(retry).toContain("lists too few postings");
+      expect(retry).toContain(`Pages that may list more postings: ${search}`);
+    });
+
+    it("gives up after two sparse recipes instead of storing one", async () => {
+      callJson.mockResolvedValue({ success: true, data: withListing(careers) });
+      await expect(learnRecipe(careers, {})).rejects.toThrow("lists too few postings");
+      expect(callJson).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("rejects a sparse listing that offers a next page the recipe cannot follow", async () => {
+    pages[careers] = `<a href="/jobs/engineer-123">Engineer</a><a href="?page=2">Next</a>`;
+    callJson.mockResolvedValue({ success: true, data: learned });
+    await expect(learnRecipe(careers, {})).rejects.toThrow("lists too few postings");
+  });
+
+  it("accepts a small company page that shows no sign of more postings", async () => {
+    pages[careers] =
+      `<a href="/jobs/engineer-123">Engineer</a><a href="/jobs/designer-456">Designer</a>`;
+    await expect(learnRecipe(careers, {})).resolves.toEqual(learned);
+  });
+});
