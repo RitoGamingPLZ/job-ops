@@ -10,6 +10,8 @@
 # is the only one that applies.
 !orchestrator/dist/pdf-worker
 !orchestrator/dist/pdf-worker/**
+!orchestrator/dist/careers-worker
+!orchestrator/dist/careers-worker/**
 **/*.pyc
 
 # Data (mounted as volume)

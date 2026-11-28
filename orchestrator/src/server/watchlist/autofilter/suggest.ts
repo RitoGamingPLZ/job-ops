@@ -297,6 +297,7 @@ export async function suggestFilters(input: {
           updatedAt: "",
         },
         signal: input.signal ? AbortSignal.any([input.signal, timeoutSignal]) : timeoutSignal,
+        ...(resolvedSourceType === "careers_site" ? { preview: true } : {}),
       }),
     );
     const countFiltered = facets.countFiltered;

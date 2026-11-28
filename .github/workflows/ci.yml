@@ -130,6 +130,7 @@ jobs:
         run: |
           vp run --filter job-ops-orchestrator build:client
           vp run --filter job-ops-orchestrator build:pdf-worker
+          vp run --filter job-ops-orchestrator build:careers-worker
 
   docs:
     name: Documentation

@@ -19,6 +19,7 @@ import WatchlistJobRow from "./WatchlistJobRow";
 
 interface WatchlistSourceResultsCardProps {
   item: WatchlistFetchState;
+  isQueued?: boolean;
   sourceTypes: WatchlistSourceTypeDescriptor[];
   pipelineSearchTerms: string[];
   locationIntent: LocationIntent;
@@ -40,8 +41,8 @@ interface WatchlistSourceResultsCardProps {
   onRetry?: (source: WatchlistSelectedSource) => void;
 }
 
-function getStatusBadge(item: WatchlistFetchState) {
-  if (item.status === "loading") {
+function getStatusBadge(item: WatchlistFetchState, isQueued?: boolean) {
+  if (item.status === "loading" || isQueued) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
@@ -71,6 +72,7 @@ function formatWatchlistErrorDiagnostics(error: unknown): string {
 
 export function WatchlistSourceResultsCard({
   item,
+  isQueued,
   sourceTypes,
   pipelineSearchTerms,
   locationIntent,
@@ -114,12 +116,12 @@ export function WatchlistSourceResultsCard({
               {item.source.label} Careers Page
             </a>
           </div>
-          <div className="flex shrink-0 items-center gap-2">{getStatusBadge(item)}</div>
+          <div className="flex shrink-0 items-center gap-2">{getStatusBadge(item, isQueued)}</div>
         </div>
       </AccordionTrigger>
 
       <AccordionContent key={item.source.id}>
-        {item.status === "loading" ? (
+        {item.status === "loading" || (item.status === "error" && isQueued) ? (
           <div className="flex items-center gap-2 bg-muted/30 p-4 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {sourceDescriptor?.fetchingLabel ?? "Fetching jobs..."}

@@ -8,6 +8,23 @@ declare module "*do-entry.mjs" {
     remoteRenderPdf?: (body: string, requestId?: string) => Promise<Uint8Array>;
     remoteWarmPdf?: () => Promise<void>;
     remoteCareersSite?: {
+      readCrawl?: (key: string, host: string) => Promise<unknown>;
+      enqueueCrawl?: (
+        input: import("../../orchestrator/src/server/watchlist/careers-site/scan-task").CareersCrawlRequest,
+      ) => Promise<
+        import("../../orchestrator/src/server/watchlist/careers-site/scan-task").CareersCrawlStatus
+      >;
+      enqueueScan?: (
+        input: import("../../orchestrator/src/server/watchlist/careers-site/scan-task").CareersScanRequest,
+      ) => Promise<
+        import("../../orchestrator/src/server/watchlist/careers-site/scan-task").CareersScanStatus
+      >;
+      scanStatus?: (
+        url: string,
+      ) => Promise<
+        | import("../../orchestrator/src/server/watchlist/careers-site/scan-task").CareersScanStatus
+        | null
+      >;
       run(input: {
         recipe: unknown;
         sourceUrl?: string;
@@ -17,6 +34,7 @@ declare module "*do-entry.mjs" {
       }): Promise<{ kind: string; [key: string]: unknown }>;
       learn(input: {
         careersUrl: string;
+        requestId?: string;
         llm: {
           provider: string | null;
           model: string;
@@ -96,4 +114,14 @@ declare module "*do-entry.mjs" {
     storage: DurableObjectStorage,
     payload: OnTaskDonePayload,
   ): OnTaskDoneResult;
+
+  export function executeCareersScan(
+    input: import("../../orchestrator/src/server/watchlist/careers-site/scan-task").CareersScanRequest,
+  ): Promise<import("../../shared/src/types/watchlist-scan").WatchlistScanOutcome>;
+  export function getSiteRecipe(host: string): Promise<{ recipe: unknown } | null>;
+  export function recordQueuedCareersCrawl(
+    host: string,
+    filtered: boolean,
+    result: { kind: string; jobs?: unknown; reason?: unknown },
+  ): Promise<void>;
 }

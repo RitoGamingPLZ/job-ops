@@ -1,4 +1,10 @@
 import type { CrawledJob, Recipe } from "./types";
+import type {
+  CareersCrawlRequest,
+  CareersCrawlStatus,
+  CareersScanRequest,
+  CareersScanStatus,
+} from "./scan-task";
 
 /**
  * The Cloudflare Durable Object bundle stubs out Playwright and jsdom, so careers sites cannot be
@@ -31,6 +37,10 @@ export type RemoteCareersSiteLearnResult =
   | { kind: "unavailable"; message?: string };
 
 export interface RemoteCareersSiteRunner {
+  readCrawl?(key: string, host: string): Promise<unknown>;
+  enqueueCrawl?(input: CareersCrawlRequest): Promise<CareersCrawlStatus>;
+  enqueueScan?(input: CareersScanRequest): Promise<CareersScanStatus>;
+  scanStatus?(careersUrl: string): Promise<CareersScanStatus | null>;
   run(input: {
     recipe: Recipe;
     /** A filtered listing URL that overrides the host recipe's listing for this run only. */
@@ -43,6 +53,7 @@ export interface RemoteCareersSiteRunner {
   learn(input: {
     careersUrl: string;
     llm: RemoteCareersSiteLlm;
+    requestId?: string;
     signal?: AbortSignal;
   }): Promise<RemoteCareersSiteLearnResult>;
 }

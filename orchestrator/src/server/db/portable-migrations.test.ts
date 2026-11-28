@@ -64,6 +64,7 @@ describe("portable-migrations", () => {
         "0008",
         "0009",
         "0010",
+        "0011",
       ]);
       expect(first.skipped).toEqual([]);
       expect(first.total).toBe(PORTABLE_MIGRATIONS.length);
@@ -105,6 +106,7 @@ describe("portable-migrations", () => {
         "0008",
         "0009",
         "0010",
+        "0011",
       ]);
     } finally {
       sqlite.close();
@@ -129,6 +131,7 @@ describe("portable-migrations", () => {
         "0008",
         "0009",
         "0010",
+        "0011",
       ]);
       expect(first.skipped).toEqual([]);
 
@@ -152,6 +155,7 @@ describe("portable-migrations", () => {
         "0008",
         "0009",
         "0010",
+        "0011",
       ]);
     } finally {
       sqlite.close();
@@ -180,6 +184,7 @@ describe("portable-migrations", () => {
         "0008",
         "0009",
         "0010",
+        "0011",
       ]);
       expect(sqlite.prepare("SELECT id, status, posting_id FROM jobs ORDER BY id").all()).toEqual([
         { id: "j1", status: "applied", posting_id: null },

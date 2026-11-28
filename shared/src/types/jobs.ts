@@ -1,7 +1,9 @@
 import type { ExtractorSourceId } from "../extractors";
 import type { LocationEvidence, LocationMatchResult } from "./location";
+import type { WatchlistScanOutcome } from "./watchlist-scan";
 
 export type { LocationEvidenceQuality } from "./location";
+export type { WatchlistScanOutcome } from "./watchlist-scan";
 
 export type JobLocationEvidence = LocationEvidence;
 
@@ -488,12 +490,6 @@ export interface WatchlistSearchControl {
   multiple: boolean;
 }
 
-/** How the last background scan of a careers site ended; reasons are bounded, page-free messages. */
-export interface WatchlistScanOutcome {
-  outcome: "found" | "none" | "failed" | "unavailable" | "blocked";
-  reason?: string;
-}
-
 export type WatchlistSearchControlsResponse =
   | {
       status: "ready";
@@ -581,12 +577,14 @@ export type WatchlistSourceResult =
       status: "error";
       source: WatchlistSelectedSource;
       error: string;
+      pending?: boolean;
     };
 
 export interface WatchlistResultsResponse {
   checkedAt: string | null;
   previousLastCheckedAt: string | null;
   sources: WatchlistSourceResult[];
+  pendingSourceIds?: string[];
 }
 
 export interface WatchlistImportDraftInput {

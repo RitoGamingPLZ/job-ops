@@ -215,6 +215,13 @@ RUN set -eux; \
 # ============================================================================
 FROM runtime-node-deps AS production
 
+# Chromium headless shell for careers-site crawling (watchlist sources that render in a browser).
+# The Python Playwright install above only provides Firefox. PLAYWRIGHT_BROWSERS_PATH is already
+# /ms-playwright, where the crawler looks (see careers-site/fetch.ts); the COPY below merges the
+# Firefox directory in beside it. `--with-deps` also installs the system libraries Chromium needs.
+RUN npx playwright install --with-deps chromium-headless-shell \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /root/.npm
+
 # Copy production-only runtime assets from sibling stages.
 COPY --from=tectonic /usr/local/bin/tectonic /usr/local/bin/tectonic
 COPY --from=typst /usr/local/bin/typst /usr/local/bin/typst

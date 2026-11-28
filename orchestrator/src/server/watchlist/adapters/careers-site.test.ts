@@ -17,6 +17,11 @@ const mocks = vi.hoisted(() => ({
   ghDetails: vi.fn(),
   ghImport: vi.fn(),
   llm: vi.fn(),
+  user: vi.fn(),
+}));
+vi.mock("@server/repositories/users", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@server/repositories/users")>()),
+  getUserById: mocks.user,
 }));
 vi.mock("./greenhouse", () => ({
   greenhouseWatchlistAdapter: {
@@ -697,10 +702,61 @@ describe("careersSiteWatchlistAdapter", () => {
       );
       expect(mocks.learn).not.toHaveBeenCalled();
     });
+    it("queues a scan without resolving credentials and restores only the authorized scope at dispatch", async () => {
+      const { getRequestContext, runWithRequestContext } = await import("@infra/request-context");
+      const { executeCareersScan } = await import("./careers-site");
+      const enqueueScan = vi.fn().mockResolvedValue({ state: "queued" });
+      setRemote({ ...remote, enqueueScan });
+      mocks.get.mockResolvedValue(null);
+      const scope = { requestId: "request", tenantId: "tenant-a", userId: "user-a" };
+      await expect(
+        runWithRequestContext(scope, () => adapter.fetchJobs({ source })),
+      ).rejects.toThrow("Learning");
+      expect(enqueueScan).toHaveBeenCalledWith(
+        expect.objectContaining({ ...scope, careersUrl: source.careersUrl }),
+      );
+      expect(mocks.llm).not.toHaveBeenCalled();
+
+      const task = { ...scope, careersUrl: source.careersUrl };
+      mocks.user.mockResolvedValue({ workspaceId: "tenant-b", isDisabled: false });
+      await expect(executeCareersScan(task)).resolves.toEqual({ outcome: "failed" });
+      expect(mocks.llm).not.toHaveBeenCalled();
+
+      mocks.user.mockResolvedValue({
+        workspaceId: "tenant-a",
+        isDisabled: false,
+        isSystemAdmin: false,
+      });
+      mocks.llm.mockImplementation(async () => {
+        expect(getRequestContext()).toMatchObject(scope);
+        return llm;
+      });
+      await expect(executeCareersScan(task)).resolves.toEqual({ outcome: "none" });
+      expect(mocks.save).toHaveBeenCalledWith("example.com", recipe);
+    });
     it("persists blocks reported by the container", async () => {
       remote.run.mockResolvedValue({ kind: "blocked", reason: "HTTP 403" });
       await expect(adapter.fetchJobs({ source })).rejects.toThrow("blocks automated access");
       expect(mocks.block).toHaveBeenCalledWith("example.com", "HTTP 403");
+    });
+    it("shares unfiltered crawl work while isolating free-text search by workspace user", async () => {
+      const { runWithRequestContext } = await import("@infra/request-context");
+      const enqueueCrawl = vi.fn().mockResolvedValue({ state: "queued" });
+      setRemote({ ...remote, enqueueCrawl });
+      for (const tenantId of ["tenant-a", "tenant-b"]) {
+        await runWithRequestContext({ tenantId, userId: "user", requestId: tenantId }, async () => {
+          await expect(adapter.fetchJobs({ source })).rejects.toThrow("Careers crawl queued.");
+          await expect(
+            adapter.fetchJobs({
+              source: { ...source, careersUrl: source.careersUrl + "?q=private" },
+            }),
+          ).rejects.toThrow("Careers crawl queued.");
+        });
+      }
+      const keys = enqueueCrawl.mock.calls.map(([task]) => task.key);
+      expect(keys[0]).toBe(keys[2]);
+      expect(keys[1]).not.toBe(keys[3]);
+      expect(remote.run).not.toHaveBeenCalled();
     });
     it("does not count an unreachable browser against the recipe or start a learn cooldown", async () => {
       remote.run.mockResolvedValue({ kind: "unavailable", message: "Browser is starting" });

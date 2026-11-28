@@ -1290,6 +1290,8 @@ export const scrapeTasks = sqliteTable(
     leaseUntil: text("lease_until"),
     completedAt: text("completed_at"),
     resultKey: text("result_key"),
+    careersPayload: text("careers_payload"),
+    careersDependency: text("careers_dependency"),
     postingsFound: integer("postings_found").notNull().default(0),
     postingIds: text("posting_ids", { mode: "json" }).$type<string[] | null>(),
     error: text("error"),

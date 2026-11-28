@@ -114,6 +114,7 @@ export const WatchlistPage: React.FC = () => {
     queryKey: queryKeys.watchlist.results(),
     // Served from each source's last stored check; only the refresh actions below re-check sources.
     queryFn: () => api.fetchWatchlistResults(),
+    refetchInterval: (query) => (query.state.data?.pendingSourceIds?.length ? 3_000 : false),
     enabled: Boolean(watchlistSourcesResponse?.selectedSources),
     staleTime: 30_000,
   });
@@ -644,6 +645,7 @@ export const WatchlistPage: React.FC = () => {
               <WatchlistSourceResultsCard
                 key={item.source.id}
                 item={item}
+                isQueued={watchlistResultsResponse?.pendingSourceIds?.includes(item.source.id)}
                 sourceTypes={sourceTypes}
                 pipelineSearchTerms={pipelineSearchTerms}
                 locationIntent={locationIntent}

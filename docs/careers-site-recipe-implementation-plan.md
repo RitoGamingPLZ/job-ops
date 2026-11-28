@@ -7,6 +7,52 @@
 > - **Identity.** Ignored/imported state is matched on the host key (the per-query digest is stripped at lookup time). Nothing is rewritten in storage, and unignore clears every filter of the host.
 > - **Not in this release:** discovering multi-value free text from a board (the contract and builder support it), click/POST/infinite-scroll search, a learned `render` for rendered JSON-LD beyond what the learner observes, and a per-listing recipe key (controls are offered only on the listing path they were learned on).
 
+## Proposed scraper design
+
+Scan and Crawl now use durable tasks in Cloudflare and local SQLite. The Watchlist polls pending sources and the scheduled pipeline can reuse the last completed crawl. Public unfiltered searches and verified choices can share a crawl. The Cloudflare alarm dispatcher delivers tasks.
+
+The careers-site scraper exposes two operations. The job-scraper coordinator schedules both as durable tasks alongside the other job sources.
+
+| Operation | Input                                                                  | Work                                                                                                                                                                                                    | Output                                                                                     |
+| --------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Scan**  | Public careers listing and, when needed, a scoped credential reference | Inspect the listing and sample detail pages. Learn and verify supported filters, pagination, job URL and ID rules, and structured field extraction.                                                     | Versioned recipe saved in AppStore.                                                        |
+| **Crawl** | Verified recipe revision and selected filters                          | Apply filters, discover postings from the listing or sitemap, follow pagination, open job detail pages, and parse those pages into structured fields. Use Chromium when the recipe calls for rendering. | Structured postings, including the description and any supported fields found on the page. |
+
+Detail parsing runs inside Crawl. Scan invokes the same parsing code on a small sample to verify the recipe. One scraper implementation serves both operations. Configure concurrency by operation and host. The same worker image can run separate scan and crawl instances if load testing shows that resource isolation is needed.
+
+### Scheduling and results
+
+Use the existing job-scraper coordinator as the durable source of task state. Add careers scan and crawl task kinds alongside existing extractor tasks. Cloudflare Queues can deliver ready task IDs to a consumer as an optional transport. Cloudflare delivers at least once and does not guarantee order, so the coordinator owns dependency checks, idempotent claims, host pacing, retries and subscriber delivery. Start with the existing alarm dispatcher and the local coordinator. This keeps the first rollout testable without provisioning a second queue. If dispatcher measurements warrant managed delivery, add a transactional outbox, per-message acknowledgments after durable handoff, and dead-letter reconciliation. [Delivery guarantees](https://developers.cloudflare.com/queues/reference/delivery-guarantees/) · [Ordering and consumers](https://developers.cloudflare.com/queues/reference/how-queues-works/) · [Retries and acknowledgments](https://developers.cloudflare.com/queues/configuration/batching-retries/)
+
+```text
+Add source / Check now / Scheduled pipeline run
+    → Resolve source in the current user and tenant
+    → Ensure a durable crawl task and attach a subscriber
+        → Recipe ready: make crawl eligible
+        → Recipe needed: link a scan dependency and wait
+            → Scan fetches evidence, learns and verifies the recipe
+            → AppStore commits recipe, then releases dependent crawls
+    → Scraper crawls listings and parses job details using the verified recipe
+    → Store structured postings and deliver completion to subscribers
+        → Watchlist saves user-scoped results and calculates what is new
+        → Pipeline continues with those postings alongside other scrapers
+```
+
+### Tasks, credentials and deduplication
+
+- Store the task kind, canonical listing ID, dependency ID, attempt count, lease and next eligible time with the coordinator. Blocked crawls consume no attempt while waiting for their scan. A terminal scan failure gives the dependent sources an actionable status. A scan with a usable existing recipe can leave that recipe serving refreshes while an upgrade runs.
+- Resolve LLM settings at scan execution through an opaque credential reference. Bind the reference to the issuing tenant, user and scan, and verify the active lease before resolving it from AppStore or the local settings store. Scope it to the scan lifetime and allow an authorized retry to resolve it again. Queue messages, task parameters, logs and results contain no provider key. Use the resolved settings only for the active scan. On revocation or missing credentials, surface a configuration error to the requesting user. A shared public scan can join an existing authorized scan without inheriting access to its credentials. The lease owner and credential owner are explicit.
+- Deduplicate public crawls by canonical listing, recipe revision and normalized public filter choices within a freshness window. The unfiltered variant has one shared key. Start with verified enum choices and a bounded number of selections. Normalize only equivalent values and ordering that the board treats as interchangeable. Keep unrestricted keyword searches user and tenant scoped where supported. Cap public variants per listing and keep subscriber-specific preferences, ignored state and seen history in AppStore.
+- Set independent concurrency limits for Scan and Crawl. Start with at most two concurrent scans overall and one active operation per host across careers tasks. Let crawl and native extractor work make progress during a scan burst. Keep limit values configurable and test with 50 sources.
+
+### Integration and rollout
+
+1. Extend `cloudflare/src/scrape-coordinator.ts` and `orchestrator/src/server/services/scrape-coordinator/index.ts` with typed tasks and durable dependencies. Pin the verified recipe revision when a crawl becomes eligible. Release the dependency only after the recipe is readable. Reconcile across databases if the recipe commit succeeds but the task update fails. Verify retries and stale leases before enabling dispatch.
+2. Route both task kinds to the careers-site scraper and add the scan credential resolver. Preserve request, pipeline and task correlation fields. Use a bounded public recipe or postings payload for callbacks. Keep provider secrets on the internal execution path. Record completion and subscriber delivery separately so a failed callback can retry without re-running the scrape.
+3. Add a typed watchlist subscriber to the existing completion path. Run watchlist result and seen-state writes in the subscriber’s tenant and user scope. Make delivery idempotent by subscriber and task, and discard a superseded subscription if its source or filters changed. Keep the last successful result visible during queued, waiting-for-scan, running and retrying states.
+4. Change **Check now** to return accepted work and expose per-source status through the existing API response contract. The scheduled pipeline enqueues watchlist jobs beside extractor tasks and consumes completed postings under its existing run identity. Apply a bounded wait so a slow or failed scan does not block the other sources. Verify whether a late completion belongs in the next run by tracking which run consumed each result.
+5. Roll out the Cloudflare and local coordinators together. Test repeated delivery, worker restart, lease recovery, revoked credentials, matching and different filter variants, stale subscriber results, and partial failure during fan-out. Verify the `standard-1` deployment and a real scan before attributing existing failures to capacity. Evaluate Cloudflare Queues only after recording backlog size, time to dispatch and recovery behavior under the burst test.
+
 ## Outcome and scope
 
 When a user changes a keyword or location on a custom careers board, the next refresh should run the saved search with those values, follow subsequent pages, identify each posting, and prefill supported job fields. Learning may use the LLM. Refreshing a verified recipe should require zero model calls. The existing Suggest Filters action may still use a model when the user requests suggestions.

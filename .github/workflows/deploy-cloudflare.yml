@@ -30,6 +30,7 @@ jobs:
           vp run --filter job-ops-orchestrator build:client
           vp run --filter job-ops-orchestrator build:do
           vp run --filter job-ops-orchestrator build:pdf-worker
+          vp run --filter job-ops-orchestrator build:careers-worker
 
       - name: Build documentation site
         run: vp run --filter docs-site build

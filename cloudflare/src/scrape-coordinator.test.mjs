@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
@@ -46,6 +47,128 @@ function makeCoordinator(env) {
   coordinator.poolCursor = 0;
   return coordinator;
 }
+
+test("careers scans persist, deduplicate and dispatch under the initiating scope", async () => {
+  const db = new DatabaseSync(":memory:");
+  const dispatched = [];
+  const crawled = [];
+  const inflight = [];
+  let alarm = null;
+  const env = {
+    APP_STORE: {
+      getByName: () => ({
+        async executeCareersCrawl(input) {
+          crawled.push(input);
+          return { kind: "jobs", jobs: [{ id: "posting" }] };
+        },
+        async executeCareersScan(input) {
+          dispatched.push(input);
+          if (
+            input.careersUrl === "https://second.example/jobs" &&
+            dispatched.filter((item) => item.careersUrl === input.careersUrl).length === 1
+          ) {
+            return { outcome: "unavailable" };
+          }
+          return { outcome: "found" };
+        },
+      }),
+    },
+  };
+  const storage = {
+    sql: {
+      exec(query, ...params) {
+        if (!params.length && query.trimStart().startsWith("CREATE")) {
+          db.exec(query);
+          return;
+        }
+        const rows = db.prepare(query).all(...params);
+        return { toArray: () => rows, one: () => rows[0] };
+      },
+    },
+    transactionSync(operation) {
+      db.exec("BEGIN");
+      try {
+        operation();
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+    },
+    getAlarm: async () => alarm,
+    setAlarm: async (time) => {
+      alarm = time;
+    },
+  };
+  const context = { storage, waitUntil: (work) => inflight.push(work) };
+  const input = {
+    careersUrl: "https://example.com/careers?q=private",
+    userId: "user-a",
+    tenantId: "tenant-a",
+    requestId: "request-a",
+  };
+  try {
+    const coordinator = makeCoordinator(env);
+    coordinator.ctx = context;
+    coordinator.ensureSchema();
+    await Promise.all([
+      coordinator.enqueueCareersScan(input),
+      coordinator.enqueueCareersScan({ ...input, userId: "user-b", tenantId: "tenant-b" }),
+      coordinator.enqueueCareersScan({ ...input, careersUrl: "https://second.example/jobs" }),
+      coordinator.enqueueCareersScan({ ...input, careersUrl: "https://third.example/jobs" }),
+    ]);
+    assert.ok(alarm);
+    const rows = db.prepare("SELECT target, params_json FROM scrape_tasks ORDER BY rowid").all();
+    assert.equal(rows.length, 3);
+    assert.equal(rows[0].target, "https://example.com/careers");
+    assert.deepEqual(JSON.parse(rows[0].params_json), {
+      userId: "user-a",
+      tenantId: "tenant-a",
+      requestId: "request-a",
+    });
+
+    const restarted = makeCoordinator(env);
+    restarted.ctx = context;
+    const scan = await restarted.careersScanStatus(input.careersUrl);
+    assert.equal(scan.state, "queued");
+    const crawl = {
+      key: "same-public-filters",
+      host: "example.com",
+      scanTaskId: scan.taskId,
+      payload: { careersUrl: "https://example.com/careers" },
+    };
+    await Promise.all([restarted.enqueueCareersCrawl(crawl), restarted.enqueueCareersCrawl(crawl)]);
+    await restarted.alarm();
+    await Promise.all(inflight);
+    assert.equal(dispatched.length, 2);
+    assert.equal(crawled.length, 0);
+    assert.equal(dispatched[0].userId, "user-a");
+    assert.equal(dispatched[0].tenantId, "tenant-a");
+    assert.equal((await restarted.careersScanStatus(input.careersUrl)).outcome.outcome, "found");
+    assert.equal((await restarted.enqueueCareersScan(input)).state, "finished");
+    assert.equal(
+      db.prepare("SELECT COUNT(*) AS n FROM scrape_tasks WHERE status = 'pending'").get().n,
+      3,
+    );
+    assert.equal(
+      (await restarted.careersScanStatus("https://second.example/jobs")).state,
+      "queued",
+    );
+    db.exec("UPDATE scrape_tasks SET next_retry_at = 0 WHERE status = 'pending'");
+    db.exec("UPDATE source_state SET last_dispatched_at = 0");
+    await restarted.alarm();
+    await Promise.all(inflight);
+    const second = await restarted.careersScanStatus("https://second.example/jobs");
+    assert.equal(second.outcome.outcome, "found");
+    assert.equal(crawled.length, 1);
+    const result = await restarted.enqueueCareersCrawl(crawl);
+    assert.equal(result.state, "finished");
+    assert.equal(result.result.jobs[0].id, "posting");
+    assert.equal((await restarted.readCareersCrawl(crawl.key, crawl.host)).jobs[0].id, "posting");
+  } finally {
+    db.close();
+  }
+});
 
 function makeContainerDO(env, options = {}) {
   const starts = [];
@@ -215,15 +338,17 @@ test("ScraperContainer starts PDF renderer with standard-1 and pdf-worker entryp
   assert.equal("entrypoint" in scraper.starts[0], false);
 });
 
-test("ScraperContainer starts careers-site learning and crawling on standard-1 with the full server", async () => {
+test("ScraperContainer starts both careers-site operations with the same worker on standard-1", async () => {
   for (const path of ["/internal/careers-site/learn", "/internal/careers-site/run"]) {
     const careers = makeContainerDO({ CRON_SECRET: "secret" });
     await careers.instance.fetch(
       new Request(`http://scraper${path}`, { method: "POST", body: "{}" }),
     );
     assert.equal(careers.starts[0].instance, "standard-1");
-    // Unlike the PDF renderer it needs the whole server, so it keeps the default entrypoint.
-    assert.equal("entrypoint" in careers.starts[0], false);
+    assert.deepEqual(Array.from(careers.starts[0].entrypoint), [
+      "node",
+      "/app/orchestrator/dist/careers-worker/careers-worker.mjs",
+    ]);
   }
   // Other scraper requests stay on the default size.
   const scraper = makeContainerDO({ CRON_SECRET: "secret" });

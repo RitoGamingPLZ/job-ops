@@ -7,6 +7,7 @@ import { logger } from "@infra/logger";
 import { sanitizeUnknown } from "@infra/sanitize";
 import { eq, sql } from "drizzle-orm";
 import { createApp } from "./app";
+import { startLocalCareersQueue } from "./services/scrape-coordinator/careers";
 import { db, schema } from "./db/index";
 import { initializeExtractorRegistry } from "./extractors/registry";
 import { deleteExpiredOrRevokedAuthSessions } from "./repositories/auth-sessions";
@@ -82,6 +83,7 @@ async function startServer() {
       count: failedRuns,
     });
 
+  startLocalCareersQueue();
   const app = createApp();
   const PORT = process.env.PORT || 3001;
 

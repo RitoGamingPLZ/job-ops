@@ -11,6 +11,7 @@ import { isWorkerdRuntime } from "../runtime";
 import { createHash } from "node:crypto";
 import { badRequest, serviceUnavailable, unprocessableEntity, upstreamError } from "@infra/errors";
 import { logger } from "@infra/logger";
+import { getRequestContext, runWithRequestContext } from "@infra/request-context";
 import {
   getSiteRecipe,
   markSiteBlocked,
@@ -20,11 +21,19 @@ import {
 import { parseGreenhouseUrl } from "@career-boards/greenhouse";
 import greenhouseCatalog from "@server/config/career-boards-greenhouse.json";
 import { resolveLlmRuntimeSettings } from "@server/services/modelSelection";
+import { getUserById } from "@server/repositories/users";
 import { learnRecipe, RecipeLearningError } from "@server/watchlist/careers-site/learn";
 import {
   getRemoteCareersSiteRunner,
   RemoteCareersSiteUnavailableError,
+  type RemoteCareersSiteRunResult,
 } from "@server/watchlist/careers-site/remote";
+import {
+  CareersWorkPending,
+  getLocalCareersTaskQueue,
+  type CareersScanRequest,
+  type CareersScanStatus,
+} from "@server/watchlist/careers-site/scan-task";
 import { sameUrlPath } from "@server/watchlist/careers-site/normalize";
 import { runRecipe } from "@server/watchlist/careers-site/run-recipe";
 import {
@@ -138,6 +147,9 @@ function greenhouseFallback(source: WatchlistSelectedSource): WatchlistSelectedS
 function remoteRunner() {
   return isWorkerdRuntime() ? getRemoteCareersSiteRunner() : null;
 }
+function careersQueue() {
+  return isWorkerdRuntime() ? remoteRunner() : getLocalCareersTaskQueue();
+}
 async function crawl(
   recipe: Recipe,
   host: string,
@@ -164,6 +176,7 @@ async function learn(host: string, url: string, signal: AbortSignal): Promise<Re
   const runtime = await resolveLlmRuntimeSettings("default");
   const result = await remote.learn({
     careersUrl: url,
+    requestId: getRequestContext()?.requestId,
     llm: {
       provider: runtime.provider,
       model: runtime.model,
@@ -177,6 +190,55 @@ async function learn(host: string, url: string, signal: AbortSignal): Promise<Re
   if (result.kind === "failed") throw new RecipeLearningError(result.message);
   return result.recipe;
 }
+
+/** Execute an authorized coordinator scan with the initiating user's current settings. */
+export async function executeCareersScan(input: CareersScanRequest): Promise<WatchlistScanOutcome> {
+  const url = careersUrl(input.careersUrl);
+  url.search = "";
+  url.hash = "";
+  const user = await getUserById(input.userId);
+  if (!user || user.isDisabled || user.workspaceId !== input.tenantId) return { outcome: "failed" };
+  return runWithRequestContext(
+    {
+      requestId: input.requestId,
+      tenantId: input.tenantId,
+      userId: input.userId,
+      isSystemAdmin: user.isSystemAdmin,
+      pipelineRunId: input.pipelineRunId,
+    },
+    async () => {
+      try {
+        const recipe = await learn(url.hostname, url.href, createBudgetSignal(undefined, 180_000));
+        await saveSiteRecipe(url.hostname, recipe);
+        clearHostCache(url.hostname);
+        return { outcome: recipe.search ? "found" : "none" };
+      } catch (error) {
+        if (error instanceof SiteBlockedError) {
+          await markSiteBlocked(url.hostname, error.reason);
+          return { outcome: "blocked" };
+        }
+        if (error instanceof RemoteCareersSiteUnavailableError) return { outcome: "unavailable" };
+        logger.warn("Queued careers scan failed", { host: url.hostname });
+        return { outcome: "failed" };
+      }
+    },
+  );
+}
+
+/** Update the recipe once per completed queue execution, regardless of how many users read it. */
+export async function recordQueuedCareersCrawl(
+  host: string,
+  filtered: boolean,
+  result: { kind: string; jobs?: unknown; reason?: unknown },
+): Promise<void> {
+  if (result.kind === "blocked" && typeof result.reason === "string") {
+    await markSiteBlocked(host, result.reason);
+  } else if (result.kind === "jobs" && Array.isArray(result.jobs)) {
+    if (result.jobs.length || !filtered) await recordSiteRecipeRun(host, result.jobs.length > 0);
+  } else if (result.kind === "failed") {
+    await recordSiteRecipeRun(host, false);
+  }
+}
 // Explicitly global and public: how the last background scan of a host ended. No tenant data; the
 // reasons are the learner's own bounded messages, never page text.
 const scans = new Map<string, WatchlistScanOutcome & { at: number }>();
@@ -189,10 +251,31 @@ function lastScan(host: string): WatchlistScanOutcome | undefined {
 }
 
 /** Start (or join) background learning for a host; throws only while a failed learn cools down. */
-function ensureLearning(host: string, url: string): void {
+async function ensureLearning(
+  host: string,
+  url: string,
+  repair = false,
+): Promise<CareersScanStatus | void> {
   const plainUrl = new URL(url);
   plainUrl.search = "";
   plainUrl.hash = "";
+  const queue = careersQueue();
+  if (queue?.enqueueScan) {
+    const { tenantId, userId, requestId, pipelineRunId } = getRequestContext() ?? {};
+    if (!tenantId || !userId || !requestId)
+      throw serviceUnavailable("Careers scans require a workspace user.");
+    const scan = await queue.enqueueScan({
+      careersUrl: plainUrl.href,
+      tenantId,
+      userId,
+      requestId,
+      pipelineRunId,
+      repair,
+    });
+    if (scan.state === "finished" && scan.outcome.outcome === "failed")
+      throw serviceUnavailable("Could not learn this careers site. Try again later.");
+    return scan;
+  }
   clearHostCache(host);
   const failedAt = failedLearns.get(host);
   if (failedAt !== undefined && Date.now() - failedAt < FAILED_LEARN_COOLDOWN_MS)
@@ -246,11 +329,69 @@ function ensureLearning(host: string, url: string): void {
     });
   }
 }
-function startLearning(host: string, url: string): never {
-  ensureLearning(host, url);
+async function startLearning(host: string, url: string): Promise<never> {
+  const scan = await ensureLearning(host, url, true);
+  if (careersQueue()?.enqueueCrawl) {
+    if (scan?.state === "queued" && scan.taskId)
+      await crawlQueued(null, new URL(url), 4, scan.taskId);
+    throw new CareersWorkPending(LEARNING);
+  }
   throw serviceUnavailable(LEARNING);
 }
-function cachedJob(input: {
+
+function crawlQueueKey(recipe: Recipe | null, url: URL): string {
+  const context = getRequestContext();
+  const params =
+    recipe?.search && sameListingPath(recipe.search, url.href) ? recipe.search.params : [];
+  const entries = [...url.searchParams];
+  const publicFilters =
+    entries.length <= 2 &&
+    entries.every(([name, value]) =>
+      params.some(
+        (param) =>
+          param.key === name &&
+          param.input.kind === "choice" &&
+          param.input.options.some((choice) => choice.value === value),
+      ),
+    );
+  const scope = publicFilters ? "public" : [context?.tenantId, context?.userId];
+  if (!publicFilters && (!context?.tenantId || !context.userId))
+    throw serviceUnavailable("Filtered careers crawls require a workspace user.");
+  return digest(JSON.stringify([url.href, scope]));
+}
+
+async function crawlQueued(
+  recipe: Recipe | null,
+  url: URL,
+  limit: number,
+  scanTaskId?: string,
+  useLastCrawl = false,
+): Promise<CrawledJob[]> {
+  const queue = careersQueue()?.enqueueCrawl;
+  if (!queue) throw new Error("Careers crawl queue is unavailable.");
+  const status = await queue({
+    key: crawlQueueKey(recipe, url),
+    host: url.hostname,
+    payload: recipe
+      ? { recipe, ...(url.search ? { sourceUrl: url.href } : {}), limit, budgetMs: 20_000 }
+      : { careersUrl: url.href },
+    scanTaskId,
+    requestId: getRequestContext()?.requestId,
+  });
+  const result = (
+    status.state === "finished"
+      ? status.result
+      : useLastCrawl
+        ? await careersQueue()?.readCrawl?.(crawlQueueKey(recipe, url), url.hostname)
+        : null
+  ) as RemoteCareersSiteRunResult | null;
+  if (status.state === "queued" && !result) throw new CareersWorkPending("Careers crawl queued.");
+  if (result?.kind === "jobs" && Array.isArray(result.jobs)) return result.jobs;
+  if (result?.kind === "blocked") throw new SiteBlockedError(url.hostname, result.reason);
+  if (result?.kind === "unavailable") throw new RemoteCareersSiteUnavailableError(result.message);
+  throw new Error("Careers crawl failed.");
+}
+async function cachedJob(input: {
   source: WatchlistSelectedSource;
   jobRef: string;
   signal?: AbortSignal;
@@ -259,8 +400,23 @@ function cachedJob(input: {
   const url = careersUrl(input.source.careersUrl);
   const host = url.hostname;
   const sourceKey = key(host, url.search);
-  const entry = getFreshMapEntry(cache, sourceKey);
-  const job = entry?.jobs.get(input.jobRef);
+  const entry = careersQueue()?.readCrawl ? undefined : getFreshMapEntry(cache, sourceKey);
+  let job = entry?.jobs.get(input.jobRef);
+  const readCrawl = careersQueue()?.readCrawl;
+  if (!job && readCrawl) {
+    const recipe = (await getSiteRecipe(host))?.recipe ?? null;
+    const publicResult = (await readCrawl(
+      crawlQueueKey(recipe, url),
+      host,
+    )) as RemoteCareersSiteRunResult | null;
+    const result =
+      publicResult?.kind === "jobs"
+        ? publicResult
+        : url.search
+          ? ((await readCrawl(crawlQueueKey(null, url), host)) as RemoteCareersSiteRunResult | null)
+          : null;
+    if (result?.kind === "jobs") job = result.jobs.find((item) => item.url === input.jobRef);
+  }
   if (!job) throw badRequest("Refresh this careers site before importing or opening this posting.");
   return { host, sourceKey, job };
 }
@@ -334,10 +490,10 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
       clearHostCache(host);
       if (blockIsActive(stored)) throw blocked(host);
       // The block has expired: relearn once. A new block refreshes the timestamp.
-      startLearning(host, url.href);
+      return startLearning(host, url.href);
     }
     if (learning.has(host) || !stored?.recipe || stored.consecutiveFailures >= 3)
-      startLearning(host, url.href);
+      return startLearning(host, url.href);
     const recipe = stored.recipe;
     // Rendered details take 2–20 s/page. Keep their cap at 4 within the
     // 25 s hard budget; listing-only rendering gets 10, while plain/JSON-LD
@@ -349,42 +505,48 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     const limit = detailRenders(recipe) ? 4 : listingRenders ? 10 : 60;
     cache.delete(sourceKey);
     let collected: CrawledJob[];
+    const queued = !input.preview && Boolean(careersQueue()?.enqueueCrawl);
     try {
-      collected = await crawl(recipe, host, {
-        limit,
-        signal,
-        stopAt,
-        ...(url.search ? { sourceUrl: url.href } : {}),
-      });
+      collected = queued
+        ? await crawlQueued(recipe, url, limit, undefined, input.useLastCrawl)
+        : await crawl(recipe, host, {
+            limit,
+            signal,
+            stopAt,
+            ...(url.search ? { sourceUrl: url.href } : {}),
+          });
       signal.throwIfAborted();
     } catch (error) {
+      if (error instanceof CareersWorkPending) throw error;
       if (error instanceof SiteBlockedError) {
-        await markSiteBlocked(host, error.reason);
+        if (!queued && !input.preview) await markSiteBlocked(host, error.reason);
         throw blocked(host);
       }
       input.signal?.throwIfAborted();
       // An unreachable browser says nothing about the recipe; do not count it toward relearning.
       if (error instanceof RemoteCareersSiteUnavailableError)
         throw serviceUnavailable(error.message);
-      const failures = await recordSiteRecipeRun(host, false);
-      if (failures >= 3) startLearning(host, url.href);
+      if (!queued && !input.preview && (await recordSiteRecipeRun(host, false)) >= 3)
+        return startLearning(host, url.href);
       throw upstreamError("Could not read jobs from this careers site. Try again later.");
     }
     // An empty filtered listing says nothing about the shared host recipe.
-    if (collected.length > 0 || !url.search) {
+    if (!queued && !input.preview && (collected.length > 0 || !url.search)) {
       const failures = await recordSiteRecipeRun(host, collected.length > 0);
-      if (failures >= 3) startLearning(host, url.href);
+      if (failures >= 3) return startLearning(host, url.href);
     }
     const jobs = collected.slice(0, limit);
-    setBoundedMapEntry(
-      cache,
-      sourceKey,
-      {
-        expires: Date.now() + 15 * 60_000,
-        jobs: new Map(jobs.map((job) => [job.url, job])),
-      },
-      100,
-    );
+    if (!queued && !input.preview) {
+      setBoundedMapEntry(
+        cache,
+        sourceKey,
+        {
+          expires: Date.now() + 15 * 60_000,
+          jobs: new Map(jobs.map((job) => [job.url, job])),
+        },
+        100,
+      );
+    }
     return {
       total: jobs.length,
       fetched: jobs.length,
@@ -405,7 +567,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
   async fetchJobDetails(input) {
     const fallback = greenhouseFallback(input.source);
     if (fallback) return greenhouseWatchlistAdapter.fetchJobDetails({ ...input, source: fallback });
-    const { job } = cachedJob(input);
+    const { job } = await cachedJob(input);
     return {
       jobRef: input.jobRef,
       jobUrl: job.url,
@@ -420,7 +582,7 @@ export const careersSiteWatchlistAdapter: WatchlistCatalogSourceAdapter = {
     const fallback = greenhouseFallback(input.source);
     if (fallback)
       return greenhouseWatchlistAdapter.prepareImportDraft({ ...input, source: fallback });
-    const { host, sourceKey, job } = cachedJob(input);
+    const { host, sourceKey, job } = await cachedJob(input);
     return {
       source: sourceKey,
       sourceHost: host,
@@ -479,12 +641,18 @@ export async function getCareersSiteSearchControls(
       values: readSearchValues(search, url.href),
     };
   }
-  if (learning.has(url.hostname)) return { status: "learning" };
+  const queuedScan = await careersQueue()?.scanStatus?.(url.href);
+  if (queuedScan?.state === "queued" || learning.has(url.hostname)) return { status: "learning" };
   if (!canRescan(stored, url)) return { status: "unsupported" };
-  const scan = lastScan(url.hostname);
+  const scan = queuedScan?.state === "finished" ? queuedScan.outcome : lastScan(url.hostname);
   // A scan that finished and found nothing is an answer; offering the button again would only
   // repeat it. A failed or unfinished one says why, so it can be retried or reported.
-  if (scan?.outcome === "none" && scannedRecently(url.hostname))
+  if (
+    scan?.outcome === "none" &&
+    (queuedScan?.state === "finished"
+      ? Date.now() - queuedScan.finishedAt < RESCAN_COOLDOWN_MS
+      : scannedRecently(url.hostname))
+  )
     return { status: "none", lastScan: scan };
   return { status: "rescan", ...(scan ? { lastScan: scan } : {}) };
 }
@@ -537,5 +705,5 @@ export async function rescanCareersSite(value: string): Promise<void> {
     throw unprocessableEntity("This site's search filters cannot be re-learned from this page.");
   if (scannedRecently(url.hostname) && !learning.has(url.hostname))
     throw serviceUnavailable("This site was scanned recently. Try again later.");
-  ensureLearning(url.hostname, url.href);
+  await ensureLearning(url.hostname, url.href);
 }

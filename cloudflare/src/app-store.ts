@@ -6,6 +6,10 @@ import type {
   OnTaskDoneResult,
 } from "../../orchestrator/dist/do/do-entry.mjs";
 import { sanitizeUnknown } from "../../orchestrator/src/server/infra/sanitize";
+import type {
+  CareersCrawlRequest,
+  CareersScanRequest,
+} from "../../orchestrator/src/server/watchlist/careers-site/scan-task";
 import type { Env } from "./types";
 import {
   computeTableChecksum,
@@ -177,6 +181,18 @@ export class AppStore extends DurableObject<Env> {
       // Careers sites need a browser, which only the scraper container has. It is stateless: the
       // recipe and LLM connection travel with each request and the result comes straight back.
       remoteCareersSite: {
+        ...(this.env.SCRAPE_COORDINATOR
+          ? {
+              readCrawl: (key, host) =>
+                this.env.SCRAPE_COORDINATOR!.getByName("primary").readCareersCrawl(key, host),
+              enqueueCrawl: (input) =>
+                this.env.SCRAPE_COORDINATOR!.getByName("primary").enqueueCareersCrawl(input),
+              enqueueScan: (input) =>
+                this.env.SCRAPE_COORDINATOR!.getByName("primary").enqueueCareersScan(input),
+              scanStatus: (url) =>
+                this.env.SCRAPE_COORDINATOR!.getByName("primary").careersScanStatus(url),
+            }
+          : {}),
         run: (input) =>
           this.callCareersSiteContainer(
             "run",
@@ -195,6 +211,7 @@ export class AppStore extends DurableObject<Env> {
             { careersUrl: input.careersUrl, llm: input.llm },
             CAREERS_LEARN_TIMEOUT_MS,
             input.signal,
+            input.requestId,
           ),
       },
       remoteRenderPdf: async (body, requestId) => {
@@ -282,6 +299,7 @@ export class AppStore extends DurableObject<Env> {
     body: unknown,
     timeoutMs: number,
     callerSignal?: AbortSignal,
+    requestId?: string,
   ): Promise<{ kind: string; [key: string]: unknown }> {
     const namespace = this.env.SCRAPER_CONTAINER;
     const secret = resolveInternalContainerSecret(this.env);
@@ -302,6 +320,7 @@ export class AppStore extends DurableObject<Env> {
         secret,
         body: JSON.stringify(body),
         signal,
+        requestId,
       });
       if (!response.ok) {
         // A cold container answers 503 until it is ready; either way nothing is known about the site.
@@ -598,5 +617,39 @@ export class AppStore extends DurableObject<Env> {
   async onTaskDone(payload: OnTaskDonePayload): Promise<OnTaskDoneResult> {
     const { handleDurableObjectTaskDone } = await loadDoEntry();
     return handleDurableObjectTaskDone(this.ctx.storage, payload);
+  }
+
+  async executeCareersScan(input: CareersScanRequest) {
+    await this.ensureExpressServer();
+    const { executeCareersScan } = await loadDoEntry();
+    return executeCareersScan(input);
+  }
+
+  async executeCareersCrawl(input: Pick<CareersCrawlRequest, "host" | "payload" | "requestId">) {
+    let payload = input.payload;
+    if (!payload.recipe && typeof payload.careersUrl === "string") {
+      await this.ensureExpressServer();
+      const { getSiteRecipe } = await loadDoEntry();
+      const url = new URL(payload.careersUrl);
+      const stored = await getSiteRecipe(url.hostname);
+      if (!stored?.recipe) return { kind: "failed" };
+      payload = {
+        recipe: stored.recipe,
+        ...(url.search ? { sourceUrl: url.href } : {}),
+        limit: 4,
+        budgetMs: 20_000,
+      };
+    }
+    const result = await this.callCareersSiteContainer(
+      "run",
+      payload,
+      CAREERS_RUN_TIMEOUT_MS,
+      undefined,
+      input.requestId,
+    );
+    await this.ensureExpressServer();
+    const { recordQueuedCareersCrawl } = await loadDoEntry();
+    await recordQueuedCareersCrawl(input.host, Boolean(payload.sourceUrl), result);
+    return result;
   }
 }
